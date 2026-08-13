@@ -228,19 +228,6 @@ def header_xml(fm):
     right = ('<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
              '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">%s</w:t></w:r>'
              % (FONT, FONT, FONT, esc(label)))
-    page = ('<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
-            '<w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>'
-            '<w:r><w:fldChar w:fldCharType="separate"/></w:r>'
-            '<w:r><w:t>1</w:t></w:r>'
-            '<w:r><w:fldChar w:fldCharType="end"/></w:r>')
-    nopage = ('<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
-              '<w:r><w:instrText xml:space="preserve"> NUMPAGES </w:instrText>'
-              '</w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>'
-              '<w:r><w:t>1</w:t></w:r>'
-              '<w:r><w:fldChar w:fldCharType="end"/></w:r>')
-    sep = ('<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
-           '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve"> · </w:t></w:r>'
-           % (FONT, FONT, FONT))
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
             '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/'
             '2006/main">'
@@ -249,10 +236,7 @@ def header_xml(fm):
             '<w:jc w:val="left"/></w:pPr>'
             + left +
             '<w:r><w:tab/></w:r>'
-            + right + sep + page +
-            '<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
-            '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve"> / </w:t></w:r>'
-            % (FONT, FONT, FONT) + nopage +
+            + right +
             '</w:p></w:hdr>')
 
 
