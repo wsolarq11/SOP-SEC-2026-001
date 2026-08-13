@@ -140,6 +140,10 @@ def parse_md(md):
         body += para("文档信息", style="Heading2")
         body += table(fm_rows, header=False)
 
+    # 首页信息页独立成页（流派 B）：front matter 信息表 + 正文「审批信息」表
+    # 独占第一页，其后插分页符，正文（适用场景起）从第二页开始。
+    approval_pending = False
+
     i, n = 0, len(lines)
     while i < n:
         st = lines[i].strip()
@@ -154,6 +158,8 @@ def parse_md(md):
         if st.startswith("# "):
             body += para(st[2:].strip(), style="Heading1"); i += 1; continue
         if st.startswith("## "):
+            if st[3:].strip() == "审批信息":
+                approval_pending = True
             body += para(st[3:].strip(), style="Heading2"); i += 1; continue
         if st.startswith("### "):
             body += para(st[4:].strip(), style="Heading3"); i += 1; continue
@@ -170,6 +176,9 @@ def parse_md(md):
                 all(set(c) <= set("-: ") for c in r))]
             if tbl:
                 body += table(tbl, header=True)
+                if approval_pending:
+                    body += ('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
+                    approval_pending = False
             continue
         if st.startswith(">"):
             quote = []
