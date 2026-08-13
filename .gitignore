@@ -8,3 +8,7 @@
 # Python 缓存
 __pycache__/
 *.pyc
+
+# 排版中间产物（由 md 经 sop_to_docx 生成，可复现，不纳入版本）
+output/**/stage2/
+output/**/restructured.html
