@@ -1,11 +1,16 @@
-"""sop_to_docx.py - Convert the typeset SOP HTML into a styled .docx.
+"""sop_to_docx.py - Convert a typeset SOP (HTML or Markdown) into a styled .docx.
 
 Self-contained: it decodes its own valid default.docx template (docx_template.b64)
 to a fresh temp path and uses it as the explicit Document template, so it never
 depends on the venv's python-docx default.docx (which is unstable in this env).
+
+Accepts either .html or .md as the first argument. Markdown is converted to a
+minimal, well-formed HTML (headings, tables, blockquotes, lists, front-matter
+metadata table) before being fed to the same builder.
 """
 import base64
 import os
+import re
 import sys
 import tempfile
 
@@ -176,8 +181,6 @@ def _build(doc, soup):
             p = doc.add_paragraph()
             p.style = doc.styles["Title"] if "Title" in doc.styles else doc.styles["Heading 1"]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for r in p.runs:
-                pass
             _append_runs(p, node)
             for r in p.runs:
                 r.font.size = Pt(18)
@@ -237,11 +240,108 @@ def _page_setup(doc):
     sec.bottom_margin = Mm(25)
 
 
+# --------------------------------------------------------------------------
+# Minimal Markdown -> HTML (enough for our controlled SOP documents)
+# --------------------------------------------------------------------------
+
+def _escape(t):
+    return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _inline(text):
+    text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
+    text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<em>\1</em>", text)
+    return text
+
+
+def md_to_html(md):
+    lines = md.split("\n")
+    fm = {}
+    if lines and lines[0].strip() == "---":
+        end = None
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                end = i
+                break
+        if end is not None:
+            for ln in lines[1:end]:
+                if ":" in ln:
+                    k, v = ln.split(":", 1)
+                    fm[k.strip()] = v.strip()
+            lines = lines[end + 1:]
+
+    out = []
+    if fm:
+        out.append("<table>")
+        out.append("<tr><th>字段</th><th>值</th></tr>")
+        for k, v in fm.items():
+            out.append(f"<tr><td>{_escape(k)}</td><td>{_inline(_escape(v))}</td></tr>")
+        out.append("</table>")
+
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        s = line.strip()
+        if s == "":
+            i += 1
+            continue
+        if s.startswith("# "):
+            out.append(f"<h1>{_inline(_escape(s[2:]))}</h1>")
+            i += 1
+        elif s.startswith("## "):
+            out.append(f"<h2>{_inline(_escape(s[3:]))}</h2>")
+            i += 1
+        elif s.startswith("### "):
+            out.append(f"<h3>{_inline(_escape(s[4:]))}</h3>")
+            i += 1
+        elif s.startswith("> "):
+            quote = []
+            while i < n and lines[i].strip().startswith(">"):
+                quote.append(lines[i].strip()[2:].strip())
+                i += 1
+            out.append(f"<blockquote>{_inline(_escape(' '.join(quote)))}</blockquote>")
+        elif s.startswith("|"):
+            tbl_lines = []
+            while i < n and lines[i].strip().startswith("|"):
+                tbl_lines.append(lines[i].strip())
+                i += 1
+            rows = []
+            for idx, tl in enumerate(tbl_lines):
+                cells = [c.strip() for c in tl.strip("|").split("|")]
+                if idx == 1 and any("-" in c for c in cells) and all(set(c) <= set("-: ") for c in cells):
+                    continue
+                rows.append(cells)
+            if rows:
+                out.append("<table>")
+                for r_i, cells in enumerate(rows):
+                    tag = "th" if r_i == 0 else "td"
+                    out.append("<tr>" + "".join(f"<{tag}>{_inline(_escape(c))}</{tag}>" for c in cells) + "</tr>")
+                out.append("</table>")
+        elif re.match(r"^[-*] ", s):
+            items = []
+            while i < n and re.match(r"^[-*] ", lines[i].strip()):
+                items.append(lines[i].strip()[2:].strip())
+                i += 1
+            out.append("<ul>" + "".join(f"<li>{_inline(_escape(it))}</li>" for it in items) + "</ul>")
+        elif re.match(r"^\d+\. ", s):
+            items = []
+            while i < n and re.match(r"^\d+\. ", lines[i].strip()):
+                items.append(re.sub(r"^\d+\. ", "", lines[i].strip()))
+                i += 1
+            out.append("<ol>" + "".join(f"<li>{_inline(_escape(it))}</li>" for it in items) + "</ol>")
+        else:
+            out.append(f"<p>{_inline(_escape(s))}</p>")
+            i += 1
+    return "<html><body>" + "".join(out) + "</body></html>"
+
+
 def main():
     if len(sys.argv) < 3:
-        print("usage: sop_to_docx.py <input.html> <output.docx>")
+        print("usage: sop_to_docx.py <input.(html|md)> <output.docx>")
         sys.exit(2)
-    html_path = sys.argv[1]
+    in_path = sys.argv[1]
     out_path = sys.argv[2]
 
     with open(B64_PATH, "r") as f:
@@ -257,8 +357,13 @@ def main():
         _configure_styles(doc)
         _page_setup(doc)
 
-        with open(html_path, "r", encoding="utf-8") as f:
-            soup = BeautifulSoup(f.read(), "html.parser")
+        with open(in_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        if in_path.lower().endswith(".md"):
+            html = md_to_html(raw)
+        else:
+            html = raw
+        soup = BeautifulSoup(html, "html.parser")
 
         _build(doc, soup)
         doc.save(out_path)
