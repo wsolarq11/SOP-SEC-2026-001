@@ -1,0 +1,10 @@
+# SOP 知识库版本管理
+# .workbuddy 为工具元数据，不纳入 SOP 版本库
+.workbuddy/
+
+# 本环境监视器会损坏 .docx，绝不纳入版本控制
+*.docx
+
+# Python 缓存
+__pycache__/
+*.pyc
