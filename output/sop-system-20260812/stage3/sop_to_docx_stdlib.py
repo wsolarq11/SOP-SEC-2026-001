@@ -202,13 +202,80 @@ def parse_md(md):
         body += para(st)
         i += 1
 
-    sect = ('<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
+    sect = ('<w:sectPr>'
+            '<w:headerReference w:type="default" r:id="rIdHdr"/>'
+            '<w:footerReference w:type="default" r:id="rIdFtr"/>'
+            '<w:pgSz w:w="11906" w:h="16838"/>'
             '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" '
             'w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>')
+    doc = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+           '<w:document '
+           'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+           'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/'
+           'relationships">'
+           '<w:body>' + body + sect + '</w:body></w:document>')
+    return doc, fm
+
+
+def header_xml(fm):
+    title = fm.get("title", "") or ""
+    doc_number = fm.get("doc_number", "") or ""
+    version = fm.get("version", "") or ""
+    label = ("%s %s" % (doc_number, version)).strip()
+    left = '<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>' \
+           '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">%s</w:t></w:r>' \
+           % (FONT, FONT, FONT, esc(title))
+    right = ('<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
+             '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">%s</w:t></w:r>'
+             % (FONT, FONT, FONT, esc(label)))
+    page = ('<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+            '<w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>'
+            '<w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+            '<w:r><w:t>1</w:t></w:r>'
+            '<w:r><w:fldChar w:fldCharType="end"/></w:r>')
+    nopage = ('<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+              '<w:r><w:instrText xml:space="preserve"> NUMPAGES </w:instrText>'
+              '</w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+              '<w:r><w:t>1</w:t></w:r>'
+              '<w:r><w:fldChar w:fldCharType="end"/></w:r>')
+    sep = ('<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
+           '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve"> · </w:t></w:r>'
+           % (FONT, FONT, FONT))
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
-            '<w:document '
-            'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-            '<w:body>' + body + sect + '</w:body></w:document>')
+            '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/'
+            '2006/main">'
+            '<w:p><w:pPr><w:pStyle w:val="Header"/>'
+            '<w:tabs><w:tab w:val="right" w:pos="9360"/></w:tabs>'
+            '<w:jc w:val="left"/></w:pPr>'
+            + left +
+            '<w:r><w:tab/></w:r>'
+            + right + sep + page +
+            '<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
+            '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve"> / </w:t></w:r>'
+            % (FONT, FONT, FONT) + nopage +
+            '</w:p></w:hdr>')
+
+
+def footer_xml():
+    page = ('<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+            '<w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>'
+            '<w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+            '<w:r><w:t>1</w:t></w:r>'
+            '<w:r><w:fldChar w:fldCharType="end"/></w:r>')
+    nopage = ('<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+              '<w:r><w:instrText xml:space="preserve"> NUMPAGES </w:instrText>'
+              '</w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+              '<w:r><w:t>1</w:t></w:r>'
+              '<w:r><w:fldChar w:fldCharType="end"/></w:r>')
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+            '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/'
+            '2006/main">'
+            '<w:p><w:pPr><w:pStyle w:val="Footer"/><w:jc w:val="center"/></w:pPr>'
+            + page +
+            '<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
+            '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve"> / </w:t></w:r>'
+            % (FONT, FONT, FONT) + nopage +
+            '</w:p></w:ftr>')
 
 
 CONTENT_TYPES = (
@@ -221,6 +288,10 @@ CONTENT_TYPES = (
     'openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
     '<Override PartName="/word/styles.xml" ContentType="application/vnd.'
     'openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+    '<Override PartName="/word/header1.xml" ContentType="application/vnd.'
+    'openxmlformats-officedocument.wordprocessingml.header+xml"/>'
+    '<Override PartName="/word/footer1.xml" ContentType="application/vnd.'
+    'openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
     '<Override PartName="/docProps/core.xml" ContentType="application/vnd.'
     'openxmlformats-package.core-properties+xml"/>'
     '<Override PartName="/docProps/app.xml" ContentType="application/vnd.'
@@ -246,6 +317,10 @@ DOC_RELS = (
     'relationships">'
     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/'
     'officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+    '<Relationship Id="rIdHdr" Type="http://schemas.openxmlformats.org/'
+    'officeDocument/2006/relationships/header" Target="header1.xml"/>'
+    '<Relationship Id="rIdFtr" Type="http://schemas.openxmlformats.org/'
+    'officeDocument/2006/relationships/footer" Target="footer1.xml"/>'
     '</Relationships>')
 
 STYLES = (
@@ -313,13 +388,15 @@ APP = (
 def build(md_path, docx_path):
     with open(md_path, "r", encoding="utf-8") as f:
         md = f.read()
-    document_xml = parse_md(md)
+    document_xml, fm = parse_md(md)
     parts = {
         "[Content_Types].xml": CONTENT_TYPES,
         "_rels/.rels": RELS,
         "word/document.xml": document_xml,
         "word/_rels/document.xml.rels": DOC_RELS,
         "word/styles.xml": STYLES,
+        "word/header1.xml": header_xml(fm),
+        "word/footer1.xml": footer_xml(),
         "docProps/core.xml": CORE,
         "docProps/app.xml": APP,
     }
@@ -330,8 +407,10 @@ def build(md_path, docx_path):
     # Validate in the same process (the env clobbers .docx between runs).
     import xml.etree.ElementTree as ET
     with zipfile.ZipFile(docx_path) as z:
+        for part in ("word/document.xml", "word/header1.xml",
+                     "word/footer1.xml"):
+            ET.fromstring(z.read(part).decode("utf-8"))  # raises if malformed
         doc = z.read("word/document.xml").decode("utf-8")
-    ET.fromstring(doc)  # raises if malformed
     para_count = doc.count("<w:p>")
     tbl_count = doc.count("<w:tbl>")
     print("OK saved:", docx_path)
