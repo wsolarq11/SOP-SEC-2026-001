@@ -106,13 +106,19 @@ _VER_RE = re.compile(r"^\d+\.\d+$")      # 版本号 1.0 -> 居中
 _NUM_RE = re.compile(r"^[\d.\-/:\s]+$")  # 可运算数值/IP -> 右对齐
 
 
-def col_widths(rows, total=9000):
-    """列宽按内容长度加权分配（中文=2 单位，其他=1），短列自然变窄。"""
+def col_widths(rows, header=True, total=9000):
+    """列宽按内容长度加权分配（中文=2 单位，其他=1），短列自然变窄。
+
+    表头行（第一行）权重 x2——对齐微软官方风格指南
+    "Balance row height by increasing the width of text-heavy columns"：
+    标题列必须放得下表头文字，保证表头单行显示。
+    """
     ncol = max(len(r) for r in rows) if rows else 1
     widths = [1] * ncol
-    for r in rows:
+    for ri, r in enumerate(rows):
+        factor = 2.0 if (header and ri == 0) else 1.0
         for ci in range(min(ncol, len(r))):
-            w = sum(2 if ord(c) > 127 else 1 for c in r[ci])
+            w = int(sum(2 if ord(c) > 127 else 1 for c in r[ci]) * factor)
             if w > widths[ci]:
                 widths[ci] = w
     tw = sum(widths) or 1
@@ -153,7 +159,7 @@ def compute_col_aligns(rows, header=True):
 
 def table(rows, header=True):
     ncol = max(len(r) for r in rows) if rows else 1
-    col_ws = col_widths(rows)
+    col_ws = col_widths(rows, header)
     col_aligns = compute_col_aligns(rows, header)
     grid = ("<w:tblGrid>" +
             "".join('<w:gridCol w:w="%d"/>' % w for w in col_ws) +
