@@ -107,14 +107,37 @@ _NUM_RE = re.compile(r"^[\d.\-/:\s]+$")  # 可运算数值/IP -> 右对齐
 
 
 def col_widths(rows, header=True, total=9000):
-    """列宽按内容长度加权分配（中文=2 单位，其他=1），短列自然变窄。
+    """列宽分配。
 
-    所有表格统一 AutoFit Window（100% 页面宽，多表格文档宽度一致）；
-    表头行（第一行）权重 x2——保证标题单元格单行显示（对齐微软官方
-    风格指南 "Balance row height by increasing the width of text-heavy
-    columns" 与 "keep text in each cell brief—ideally one line"）。
+    - 表单类（header=False，如文件信息表）：标签列档位宽 = 内容需求 + 边距
+      + 呼吸富余，全表统一（SAP Fiori label-field ratio / ANU 20% / 语雀
+      80-120px 档位制）；剩余宽度全部给值列。
+    - 数据类（header=True）：AutoFit Window——按内容加权分配 9000（100%
+      页面宽），表头行（第一行）权重 x2，保证标题单元格单行显示（微软官方
+      风格指南 "Balance row height by increasing the width of text-heavy
+      columns" 与 "keep text in each cell brief—ideally one line"）。
     """
     ncol = max(len(r) for r in rows) if rows else 1
+    if not header:
+        label_w = 1
+        for r in rows:
+            txt = r[0] if r else ""
+            label_w = max(label_w, sum(210 if ord(c) > 127 else 105 for c in txt))
+        label_w += 226 + 150  # 内容需求 + 单元格边距 + 呼吸富余（档位制）
+        rest = total - label_w
+        val_weights = [1] * max(ncol - 1, 1)
+        for r in rows:
+            for ci in range(1, ncol):
+                txt = r[ci] if ci < len(r) else ""
+                w = sum(2 if ord(c) > 127 else 1 for c in txt)
+                if w > val_weights[ci - 1]:
+                    val_weights[ci - 1] = w
+        tw = sum(val_weights) or 1
+        ws = [label_w]
+        for w in val_weights[:-1]:
+            ws.append(max(900, int(rest * w / tw)))
+        ws.append(rest - sum(ws[1:]))  # 末列补差，保证合计=total
+        return ws
     widths = [1] * ncol
     for ri, r in enumerate(rows):
         factor = 2.0 if (header and ri == 0) else 1.0
