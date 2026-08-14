@@ -101,19 +101,9 @@ def para(text="", style=None, bold=False, italic=False, color=None, sz=None,
 
 
 _INT_RE = re.compile(r"^\d{1,3}$")       # 序号/短数字 -> 居中
-_NUM_RE = re.compile(r"^[\d.\-/:\s]+$")   # IP/日期/小数 -> 右对齐
-
-
-def cell_align(val, is_header):
-    """表格单元格水平对齐：表头居中；序号居中；IP/日期右对齐；文字左对齐。"""
-    if is_header:
-        return "center"
-    s = val.strip()
-    if _INT_RE.match(s):
-        return "center"
-    if _NUM_RE.match(s):
-        return "right"
-    return "left"
+_DATE_RE = re.compile(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}$")  # 日期 -> 居中
+_VER_RE = re.compile(r"^\d+\.\d+$")      # 版本号 1.0 -> 居中
+_NUM_RE = re.compile(r"^[\d.\-/:\s]+$")  # 可运算数值/IP -> 右对齐
 
 
 def col_widths(rows, total=9000):
@@ -134,19 +124,27 @@ def col_widths(rows, total=9000):
 def compute_col_aligns(rows, header=True):
     """列级统一对齐（黄金规则：一列内不混用对齐）。
 
-    表头行恒居中；数据列按内容类型统一：
-    - 整列全为纯数字/日期（如 1.0 / 2026-08-13）-> 右对齐
-    - 整列全为短整数（如序号 1,2,3）-> 居中
-    - 含任何文本 -> 左对齐
+    - 表单类（header=False，如文件信息表）：值列统一左对齐
+    - 记录/数据类（header=True）：表头恒居中；数据列按内容类型——
+      日期/版本号/序号/短标签（<=8 字符）列居中；可运算数值列右对齐；
+      含长文本列左对齐
     """
     ncol = max(len(r) for r in rows) if rows else 1
     data = rows[1:] if header else rows
     aligns = []
     for ci in range(ncol):
         vals = [r[ci].strip() for r in data if ci < len(r) and r[ci].strip()]
-        if vals and all(_NUM_RE.match(v) for v in vals):
-            aligns.append("center" if all(_INT_RE.match(v) for v in vals)
-                          else "right")
+        if not header:
+            aligns.append("left")
+        elif not vals:
+            aligns.append("center")
+        elif all(_DATE_RE.match(v) or _VER_RE.match(v) or _INT_RE.match(v)
+                 for v in vals):
+            aligns.append("center")
+        elif all(_NUM_RE.match(v) for v in vals):
+            aligns.append("right")
+        elif all(len(v) <= 8 for v in vals):
+            aligns.append("center")
         else:
             aligns.append("left")
     return aligns
