@@ -274,13 +274,13 @@ def parse_md(md):
                 if ":" in l:
                     k, v = l.split(":", 1)
                     fm[k.strip()] = v.strip()
+            lines = lines[end + 1:]
     # 完整性校验：front matter 必备字段缺失 → 警告（防止外部进程静默破坏源文件）
     # 历史教训：2026-08-14 规文被外部改写只剩 title，导致文档信息表丢失。
     required = ["document_id", "title", "category", "version", "status", "author"]
     missing = [k for k in required if k not in fm]
     if fm and missing:
         print("WARNING: front matter 缺失字段 %s（源文件可能被外部改写）" % missing)
-            lines = lines[end + 1:]
 
     body = ""
     fm_rows = [[FM_LABELS.get(k, k), v] for k, v in fm.items() if k != "title"]
