@@ -147,6 +147,25 @@ def col_widths(rows, header=True, total=9000):
                 widths[ci] = w
     tw = sum(widths) or 1
     col_w = [max(900, int(total * w / tw)) for w in widths]
+    # 短内容列（行标签/短标签：列内所有单元格 <=8 字符）保证单行——
+    # 宽度 >= 该列最长内容渲染宽 + 边距；超出部分从长文本列扣回。
+    short_bump = {}
+    for ci in range(ncol):
+        vals = [r[ci] for r in rows if ci < len(r)]
+        if vals and all(len(v) <= 8 for v in vals):
+            wid = max(sum(210 if ord(c) > 127 else 105 for c in v)
+                      for v in vals) + 226
+            if col_w[ci] < wid:
+                short_bump[ci] = wid - col_w[ci]
+                col_w[ci] = wid
+    over = sum(col_w) - total
+    if over > 0:
+        free = [ci for ci in range(ncol)
+                if ci not in short_bump and col_w[ci] > 900]
+        ftot = sum(col_w[ci] for ci in free) or 1
+        for ci in free:
+            cut = min(col_w[ci] - 900, int(over * col_w[ci] / ftot))
+            col_w[ci] -= cut
     col_w[-1] += total - sum(col_w)  # 修正总和=页面内容宽
     return col_w
 
