@@ -9,12 +9,14 @@
 #   bash publish.sh <md路径>   # 只发布指定文档（相对仓库根，如 sops/SOP-SEC-2026-001.md）
 #
 # 原则: 单一入口 / dry-run / 幂等同名覆盖 / 失败即报错可重跑
-# 注意: 飞书节点重建后 file_token 会变，需更新下方 MANIFEST
+# 注意: 上传 file_token 已移出本脚本 → $ROOT/.publish-tokens（gitignore 忽略，不入库）
+#       飞书节点重建后 file_token 会变，需更新 .publish-tokens
 # =============================================================
 set -u
 
-PY="C:/Users/11058/.workbuddy/binaries/python/versions/3.13.12/python.exe"
-ROOT="D:/Program Files/worksc/SOPworksc/SOP-SEC-2026-001"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
+ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -W)"
+PY="${PY:-C:/Users/11058/.workbuddy/binaries/python/versions/3.13.12/python.exe}"
 STAGE="$ROOT/output/sop-system-20260812/stage3"
 CONV="$STAGE/sop_to_docx_stdlib.py"
 CHECK="$STAGE/check_docs.py"
@@ -26,13 +28,14 @@ TARGET="${1:-ALL}"
 
 mkdir -p "$PUB"
 
-# manifest: 本地md相对路径 | docx输出文件名(NONE=不生成docx) | md_file_token | docx_file_token(NONE)
+# manifest: 本地md相对路径 | docx输出文件名(NONE=不生成docx)
+# 上传 token 不在此处，见 $ROOT/.publish-tokens
 MANIFEST=(
-"sops/SOP-SEC-2026-001.md|SOP-SEC-2026-001-v1.0.docx|REDACTED|REDACTED"
-"sops/SOP-GEN-2026-002-表格排版规范.md|SOP-GEN-2026-002-表格排版规范.docx|REDACTED|REDACTED"
-"sops/SOP-GEN-2026-001-合规与标准定位.md|SOP-GEN-2026-001-合规与标准定位.docx|REDACTED|REDACTED"
-"SOP-通用-系统说明.md|SOP-通用-系统说明.docx|REDACTED|REDACTED"
-"sops/REGISTRY.md|NONE|REDACTED|NONE"
+"sops/SOP-SEC-2026-001.md|SOP-SEC-2026-001-v1.0.docx"
+"sops/SOP-GEN-2026-002-表格排版规范.md|SOP-GEN-2026-002-表格排版规范.docx"
+"sops/SOP-GEN-2026-001-合规与标准定位.md|SOP-GEN-2026-001-合规与标准定位.docx"
+"SOP-通用-系统说明.md|SOP-通用-系统说明.docx"
+"sops/REGISTRY.md|NONE"
 )
 
 echo "== [1/4] 健康检查（check_docs）=="
@@ -41,17 +44,14 @@ echo "== [1/4] 健康检查（check_docs）=="
 echo "== [2/4] 构建 docx + 同步 md 到 publish =="
 OK=0; FAIL=0
 for entry in "${MANIFEST[@]}"; do
-  IFS='|' read -r mdrel docxname mdtok docxtok <<< "$entry"
-  # 目标过滤
+  IFS='|' read -r mdrel docxname <<< "$entry"
   if [ "$TARGET" != "ALL" ] && [ "$mdrel" != "$TARGET" ] && [ "$docxname" != "$TARGET" ]; then
     continue
   fi
   echo "--- $mdrel ---"
-  # md 同步
   if ! cp "$ROOT/$mdrel" "$PUB/$(basename "$mdrel")" 2>/dev/null; then
     echo "  ❌ md 缺失: $mdrel"; FAIL=$((FAIL+1)); continue
   fi
-  # docx 构建
   if [ "$docxname" != "NONE" ]; then
     if ! "$PY" "$CONV" "$ROOT/$mdrel" "$PUB/$docxname" >/dev/null 2>&1; then
       echo "  ❌ docx 生成失败: $docxname"; FAIL=$((FAIL+1)); continue
@@ -69,28 +69,41 @@ if [ "$DRY" = "1" ]; then
   exit 0
 fi
 
+# 读取上传 token（gitignore 忽略，不入库）
+declare -A MDTOK
+declare -A DOCTOK
+if [ ! -f "$ROOT/.publish-tokens" ]; then
+  echo "❌ 缺少 $ROOT/.publish-tokens（上传 token 映射），无法上传"
+  exit 1
+fi
+while IFS='|' read -r mdrel mdtok docxtok; do
+  [ -z "$mdrel" ] && continue
+  MDTOK["$mdrel"]="$mdtok"
+  DOCTOK["$mdrel"]="$docxtok"
+done < "$ROOT/.publish-tokens"
+
 echo
 echo "== [3/4] 同名覆盖上传飞书（幂等，token 不变）=="
 cd "$PUB"  # lark-cli --file 要求 cwd 相对路径
 for entry in "${MANIFEST[@]}"; do
-  IFS='|' read -r mdrel docxname mdtok docxtok <<< "$entry"
+  IFS='|' read -r mdrel docxname <<< "$entry"
   if [ "$TARGET" != "ALL" ] && [ "$mdrel" != "$TARGET" ] && [ "$docxname" != "$TARGET" ]; then
     continue
   fi
-  # docx
-  if [ "$docxtok" != "NONE" ]; then
-    if lark-cli drive +upload --file "./$docxname" --file-token "$docxtok" --as user --format json 2>/dev/null | grep -q '"ok": true'; then
+  if [ "$docxname" != "NONE" ] && [ "${DOCTOK[$mdrel]:-}" != "NONE" ] && [ -n "${DOCTOK[$mdrel]:-}" ]; then
+    if lark-cli drive +upload --file "./$docxname" --file-token "${DOCTOK[$mdrel]}" --as user --format json 2>/dev/null | grep -q '"ok": true'; then
       echo "  ✅ docx 上传: $docxname"
     else
       echo "  ❌ docx 上传失败: $docxname"; FAIL=$((FAIL+1))
     fi
   fi
-  # md
   mdname="$(basename "$mdrel")"
-  if lark-cli drive +upload --file "./$mdname" --file-token "$mdtok" --as user --format json 2>/dev/null | grep -q '"ok": true'; then
-    echo "  ✅ md 上传: $mdname"
-  else
-    echo "  ❌ md 上传失败: $mdname"; FAIL=$((FAIL+1))
+  if [ -n "${MDTOK[$mdrel]:-}" ] && [ "${MDTOK[$mdrel]}" != "NONE" ]; then
+    if lark-cli drive +upload --file "./$mdname" --file-token "${MDTOK[$mdrel]}" --as user --format json 2>/dev/null | grep -q '"ok": true'; then
+      echo "  ✅ md 上传: $mdname"
+    else
+      echo "  ❌ md 上传失败: $mdname"; FAIL=$((FAIL+1))
+    fi
   fi
 done
 

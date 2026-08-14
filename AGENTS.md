@@ -20,6 +20,7 @@
   - `sop_to_docx.py`（依赖版，功能同前）
   - `check_docs.py`（健康检查：front matter 完整性校验）
   - `docx_template.b64`（docx 模板）
+  - `publish.sh`（发布管线：构建-校验-发布-报告，`--dry-run`；上传 token 见 `.publish-tokens`，不入库）
 - `.gitignore` 关键规则：
   - `*.docx` **绝不入库**——本机有文件监视器会损坏 .docx，这是初始化提交就写明的纪律
   - `output/**/stage2/`、`output/**/restructured.html` 为可复现中间产物，不入库
@@ -44,13 +45,13 @@
 - **`publish\` 是快照不是镜像**：实测 `publish\SOP-SEC-2026-001.md`、`publish\REGISTRY.md` 已滞后于 git 源（缺少 doc_type 字段）→ **发布前必须从 git 源重新导出，勿直接复用 publish 里的旧文件**
 - **清掉 %TEMP% 的后果**：docx 可由生成器重建、md 可从 git 恢复——唯一例外见 §六
 
-## 六、未决事项（2026-08-14 核实发现）
+## 六、未决事项（2026-08-14 已清零）
 
-- 根目录 `SOP-通用-系统说明.md`（REF-GEN-2026-001 的源文件）**工作树已删除**（git status 显示 `D`），REGISTRY 仍登记着它；`%TEMP%\sop-exports\publish\` 里有 8/13 的副本，git 历史里有旧版本可恢复。**待决定：恢复该文件，或从 REGISTRY 注销该编号**。动手前先向用户确认。
+- ~~系统说明源文件工作树已删除~~ → **已解决**：实测根目录 `SOP-通用-系统说明.md` 仍被 git 跟踪且内容完好（`git log` 无删除提交），REGISTRY 登记有效，无需恢复或注销。
 
 ## 七、标准工作流
 
-1. 编辑/新建 md 源（放 `sops/`，系统说明类按 §六 先决断），同步登记 `REGISTRY.md`（编号、类型、层级、域名、目标目录）
+1. 编辑/新建 md 源（放 `sops/`；系统说明类归 `07-参考与说明`），同步登记 `REGISTRY.md`（编号、类型、层级、域名、目标目录）
 2. 跑 `check_docs.py` 健康检查（front matter 完整性）
 3. 生成 docx：`python output/sop-system-20260812/stage3/sop_to_docx_stdlib.py <input.md> <output.docx>`，输出到 `%TEMP%\sop-exports\publish\`（同名覆盖）
 4. git 提交 md 源与生成器改动（docx 一律不入库）
