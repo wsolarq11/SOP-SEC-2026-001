@@ -131,9 +131,31 @@ def col_widths(rows, total=9000):
     return col_w
 
 
+def compute_col_aligns(rows, header=True):
+    """列级统一对齐（黄金规则：一列内不混用对齐）。
+
+    表头行恒居中；数据列按内容类型统一：
+    - 整列全为纯数字/日期（如 1.0 / 2026-08-13）-> 右对齐
+    - 整列全为短整数（如序号 1,2,3）-> 居中
+    - 含任何文本 -> 左对齐
+    """
+    ncol = max(len(r) for r in rows) if rows else 1
+    data = rows[1:] if header else rows
+    aligns = []
+    for ci in range(ncol):
+        vals = [r[ci].strip() for r in data if ci < len(r) and r[ci].strip()]
+        if vals and all(_NUM_RE.match(v) for v in vals):
+            aligns.append("center" if all(_INT_RE.match(v) for v in vals)
+                          else "right")
+        else:
+            aligns.append("left")
+    return aligns
+
+
 def table(rows, header=True):
     ncol = max(len(r) for r in rows) if rows else 1
     col_ws = col_widths(rows)
+    col_aligns = compute_col_aligns(rows, header)
     grid = ("<w:tblGrid>" +
             "".join('<w:gridCol w:w="%d"/>' % w for w in col_ws) +
             "</w:tblGrid>")
@@ -168,7 +190,7 @@ def table(rows, header=True):
             if is_header:
                 tcpr += '<w:shd w:val="clear" w:color="auto" w:fill="E6E6E6"/>'
             tcpr += '<w:vAlign w:val="center"/></w:tcPr>'
-            jc = cell_align(val, is_header)
+            jc = "center" if is_header else col_aligns[ci]
             ppr = '<w:pPr><w:jc w:val="%s"/></w:pPr>' % jc
             p = "<w:p>%s%s</w:p>" % (ppr, runs_xml(val, base_bold=is_header))
             cells += "<w:tc>%s%s</w:tc>" % (tcpr, p)
