@@ -194,6 +194,10 @@ def compute_col_aligns(rows, header=True):
         if not header:
             # 表单类（如文件信息表）：第一列行标签居中（W3C th scope=row），值列左对齐
             aligns.append("center" if ci == 0 else "left")
+        elif ci == 0:
+            # 行标签列（第一列）恒居中（W3C th scope="row"，§5.1 规则），
+            # 不随内容长短变化——保证所有表格第一列视觉统一
+            aligns.append("center")
         elif not vals:
             aligns.append("center")
         elif all(_DATE_RE.match(v) or _VER_RE.match(v) or _INT_RE.match(v)
