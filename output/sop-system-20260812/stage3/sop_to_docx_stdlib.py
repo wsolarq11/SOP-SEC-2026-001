@@ -106,6 +106,15 @@ _VER_RE = re.compile(r"^\d+\.\d+$")      # 版本号 1.0 -> 居中
 _NUM_RE = re.compile(r"^[\d.\-/:\s]+$")  # 可运算数值/IP -> 右对齐
 
 
+def render_w(txt):
+    """估算文本渲染宽度（twips）：中文 240、西文 120。
+
+    10.5pt 中文字理论宽约 210 twips，但实际渲染（字形、字距、字体渲染
+    差异）会略宽——取 240 留安全余量，避免单行内容临界溢出换行。
+    """
+    return sum(240 if ord(c) > 127 else 120 for c in txt)
+
+
 def col_widths(rows, header=True, total=9000):
     """列宽分配。
 
@@ -122,7 +131,7 @@ def col_widths(rows, header=True, total=9000):
         label_w = 1
         for r in rows:
             txt = r[0] if r else ""
-            label_w = max(label_w, sum(210 if ord(c) > 127 else 105 for c in txt))
+            label_w = max(label_w, render_w(txt))
         label_w += 226 + 150  # 内容需求 + 单元格边距 + 呼吸富余（档位制）
         rest = total - label_w
         val_weights = [1] * max(ncol - 1, 1)
@@ -148,13 +157,12 @@ def col_widths(rows, header=True, total=9000):
     tw = sum(widths) or 1
     col_w = [max(900, int(total * w / tw)) for w in widths]
     # 短内容列（行标签/短标签：列内所有单元格 <=8 字符）保证单行——
-    # 宽度 >= 该列最长内容渲染宽 + 边距；超出部分从长文本列扣回。
+    # 宽度 >= 该列最长内容渲染宽（含安全余量）+ 边距；超出从长文本列扣回。
     short_bump = {}
     for ci in range(ncol):
         vals = [r[ci] for r in rows if ci < len(r)]
         if vals and all(len(v) <= 8 for v in vals):
-            wid = max(sum(210 if ord(c) > 127 else 105 for c in v)
-                      for v in vals) + 226
+            wid = max(render_w(v) for v in vals) + 226
             if col_w[ci] < wid:
                 short_bump[ci] = wid - col_w[ci]
                 col_w[ci] = wid
