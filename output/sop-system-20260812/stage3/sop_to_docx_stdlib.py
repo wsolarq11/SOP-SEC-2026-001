@@ -24,6 +24,20 @@ import datetime
 FONT = "微软雅黑"
 MONO = "Consolas"
 
+# front matter 键名 -> 文档信息表中文标签（展示层中文，机器层保持英文键）
+FM_LABELS = {
+    "document_id": "文档编号",
+    "title": "标题",
+    "category": "分类",
+    "version": "版本",
+    "status": "状态",
+    "author": "编制人",
+    "approver": "批准人",
+    "effective_date": "生效日期",
+    "review_due": "复审日期",
+    "last_reviewed": "上次复审",
+}
+
 
 def esc(s):
     return (s.replace("&", "&amp;").replace("<", "&lt;")
@@ -86,6 +100,22 @@ def para(text="", style=None, bold=False, italic=False, color=None, sz=None,
                                                 base_color=color, base_sz=sz))
 
 
+_INT_RE = re.compile(r"^\d{1,3}$")       # 序号/短数字 -> 居中
+_NUM_RE = re.compile(r"^[\d.\-/:\s]+$")   # IP/日期/小数 -> 右对齐
+
+
+def cell_align(val, is_header):
+    """表格单元格水平对齐：表头居中；序号居中；IP/日期右对齐；文字左对齐。"""
+    if is_header:
+        return "center"
+    s = val.strip()
+    if _INT_RE.match(s):
+        return "center"
+    if _NUM_RE.match(s):
+        return "right"
+    return "left"
+
+
 def table(rows, header=True):
     ncol = max(len(r) for r in rows) if rows else 1
     col_w = 9000 // ncol
@@ -111,8 +141,10 @@ def table(rows, header=True):
             tcpr = '<w:tcPr><w:tcW w:w="%d" w:type="dxa"/>' % col_w
             if is_header:
                 tcpr += '<w:shd w:val="clear" w:color="auto" w:fill="FEF3C7"/>'
-            tcpr += "</w:tcPr>"
-            p = "<w:p>%s</w:p>" % runs_xml(val, base_bold=is_header)
+            tcpr += '<w:vAlign w:val="center"/></w:tcPr>'
+            jc = cell_align(val, is_header)
+            ppr = '<w:pPr><w:jc w:val="%s"/></w:pPr>' % jc
+            p = "<w:p>%s%s</w:p>" % (ppr, runs_xml(val, base_bold=is_header))
             cells += "<w:tc>%s%s</w:tc>" % (tcpr, p)
         body += "<w:tr>%s</w:tr>" % cells
     return "<w:tbl>%s%s%s</w:tbl>" % (tblpr, grid, body)
@@ -135,13 +167,47 @@ def parse_md(md):
             lines = lines[end + 1:]
 
     body = ""
-    fm_rows = [[k, v] for k, v in fm.items() if k != "title"]
-    if fm_rows:
-        body += para("文档信息", style="Heading2")
-        body += table(fm_rows, header=False)
+    fm_rows = [[FM_LABELS.get(k, k), v] for k, v in fm.items() if k != "title"]
 
-    # 首页信息页独立成页（流派 B）：front matter 信息表 + 正文「审批信息」表
-    # 独占第一页，其后插分页符，正文（适用场景起）从第二页开始。
+    # 预扫描：提取正文「审批信息」表（编制人/审核人/批准人/生效日期）并入信息表，
+    # 形成一张合并的「文件信息表」（对齐质量管理 SOP 封面模板的单表格式）。
+    approval_extra = []
+    for idx, line in enumerate(lines):
+        if line.strip() == "## 审批信息":
+            j = idx + 1
+            while j < len(lines) and not lines[j].strip().startswith("|"):
+                j += 1
+            if j < len(lines):
+                tbl = []
+                while j < len(lines) and lines[j].strip().startswith("|"):
+                    row = [c.strip() for c in lines[j].strip().strip("|").split("|")]
+                    tbl.append(row)
+                    j += 1
+                tbl = [r for r in tbl if not (
+                    len(r) > 0 and any("-" in c for c in r) and
+                    all(set(c) <= set("-: ") for c in r))]
+                if len(tbl) >= 2:
+                    header = tbl[0]
+                    for data_row in tbl[1:]:
+                        for ci, label in enumerate(header):
+                            val = data_row[ci] if ci < len(data_row) else ""
+                            if val.strip():
+                                approval_extra.append([label, val])
+            break
+    existing = [r[0] for r in fm_rows]
+    for label, val in approval_extra:
+        if label not in existing and val.strip():
+            fm_rows.append([label, val])
+            existing.append(label)
+
+    fm_rendered = False
+    if fm_rows:
+        fm_block = table(fm_rows, header=False)
+    else:
+        fm_block = ""
+
+    # 首页信息页独立成页（流派 B）：H1 标题后紧跟合并的文件信息表，
+    # 其后插分页符，正文（适用场景起）从第二页开始。
     approval_pending = False
 
     i, n = 0, len(lines)
@@ -156,10 +222,23 @@ def parse_md(md):
             i += 1
             continue
         if st.startswith("# "):
-            body += para(st[2:].strip(), style="Heading1"); i += 1; continue
+            # H1 文档标题：居中 + 段前段后间距（对齐医械临床试验操作手册/阳新县医院 SOP 规范）
+            h1_ppr = ('<w:jc w:val="center"/>'
+                      '<w:spacing w:before="240" w:after="240"/>')
+            body += para(st[2:].strip(), style="Heading1", ppr_extra=h1_ppr)
+            if fm_block and not fm_rendered:
+                body += fm_block
+                fm_rendered = True
+            i += 1
+            continue
         if st.startswith("## "):
             if st[3:].strip() == "审批信息":
+                # 审批信息已并入文件信息表，跳过其标题（approval_pending 用于其表格后分页）
                 approval_pending = True
+                i += 1
+                continue
+            if st[3:].strip() == "版本修订记录":
+                body += ('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
             body += para(st[3:].strip(), style="Heading2"); i += 1; continue
         if st.startswith("### "):
             body += para(st[4:].strip(), style="Heading3"); i += 1; continue
@@ -175,10 +254,12 @@ def parse_md(md):
                 len(r) > 0 and any("-" in c for c in r) and
                 all(set(c) <= set("-: ") for c in r))]
             if tbl:
-                body += table(tbl, header=True)
                 if approval_pending:
+                    # 审批信息表内容已并入文件信息表，此处跳过渲染，仅分页
                     body += ('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
                     approval_pending = False
+                else:
+                    body += table(tbl, header=True)
             continue
         if st.startswith(">"):
             quote = []
@@ -228,7 +309,7 @@ def parse_md(md):
 
 def header_xml(fm):
     title = fm.get("title", "") or ""
-    doc_number = fm.get("doc_number", "") or ""
+    doc_number = (fm.get("document_id") or fm.get("doc_number") or "") or ""
     version = fm.get("version", "") or ""
     label = ("%s %s" % (doc_number, version)).strip()
     left = '<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>' \
