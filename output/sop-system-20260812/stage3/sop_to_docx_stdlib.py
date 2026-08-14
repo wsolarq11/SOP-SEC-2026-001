@@ -21,8 +21,12 @@ import sys
 import zipfile
 import datetime
 
-FONT = "微软雅黑"
-MONO = "Consolas"
+# 字体与颜色（对齐中文正式文档规范 + Few/微软颜色建议）
+FONT_EA = "宋体"                  # 正文字体（中文正式文档规范）
+FONT_LATIN = "Times New Roman"    # 正文西文/数字（中文文档惯例）
+HEAD_EA = "黑体"                  # 标题字体（中文文档惯例）
+MONO = "Consolas"                 # 代码/参数等宽字体
+TEXT_COLOR = "3F3F3F"             # 正文字色：深灰（Stephen Few 推荐 + 微软安全灰）
 
 # front matter 键名 -> 文档信息表中文标签（展示层中文，机器层保持英文键）
 FM_LABELS = {
@@ -75,11 +79,11 @@ def runs_xml(text, base_bold=False, base_italic=False, base_color=None,
             rpr.append('<w:sz w:val="%s"/>' % base_sz)
         if c:
             rpr.append('<w:rFonts w:ascii="%s" w:hAnsi="%s" w:eastAsia="%s"/>'
-                       % (MONO, MONO, FONT))
+                       % (MONO, MONO, FONT_EA))
             rpr.append('<w:shd w:val="clear" w:color="auto" w:fill="F3F4F6"/>')
         else:
             rpr.append('<w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
-                       % (FONT, FONT, FONT))
+                       % (FONT_EA, FONT_LATIN, FONT_LATIN))
         rpr_xml = "<w:rPr>%s</w:rPr>" % "".join(rpr)
         out.append('<w:r>%s<w:t xml:space="preserve">%s</w:t></w:r>'
                    % (rpr_xml, esc(t)))
@@ -430,10 +434,10 @@ def header_xml(fm):
     label = ("%s %s" % (doc_number, version)).strip()
     left = '<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>' \
            '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">%s</w:t></w:r>' \
-           % (FONT, FONT, FONT, esc(title))
+           % (FONT_EA, FONT_LATIN, FONT_LATIN, esc(title))
     right = ('<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
              '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">%s</w:t></w:r>'
-             % (FONT, FONT, FONT, esc(label)))
+             % (FONT_EA, FONT_LATIN, FONT_LATIN, esc(label)))
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
             '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/'
             '2006/main">'
@@ -464,7 +468,7 @@ def footer_xml():
             + page +
             '<w:r><w:rPr><w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
             '<w:sz w:val="18"/></w:rPr><w:t xml:space="preserve"> / </w:t></w:r>'
-            % (FONT, FONT, FONT) + nopage +
+            % (FONT_EA, FONT_LATIN, FONT_LATIN) + nopage +
             '</w:p></w:ftr>')
 
 
@@ -518,31 +522,41 @@ STYLES = (
     '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/'
     '2006/main">'
     '<w:docDefaults><w:rPrDefault><w:rPr>'
-    '<w:rFonts w:eastAsia="%s" w:ascii="%s" w:hAnsi="%s"/>'
-    '<w:sz w:val="21"/></w:rPr></w:rPrDefault>'
+    '<w:rFonts w:eastAsia="' + FONT_EA + '" w:ascii="' + FONT_LATIN
+    + '" w:hAnsi="' + FONT_LATIN + '"/>'
+    '<w:color w:val="' + TEXT_COLOR + '"/><w:sz w:val="21"/>'
+    '</w:rPr></w:rPrDefault>'
     '<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" '
     'w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
     '<w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/>'
-    '<w:rPr><w:rFonts w:eastAsia="%s"/></w:rPr></w:style>'
+    '<w:rPr><w:rFonts w:eastAsia="' + FONT_EA + '"/></w:rPr></w:style>'
     '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/>'
     '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>'
     '<w:pPr><w:outlineLvl w:val="0"/><w:spacing w:before="240" w:after="120"/>'
-    '</w:pPr><w:rPr><w:b/><w:sz w:val="32"/><w:color w:val="1F3864"/></w:rPr>'
+    '</w:pPr><w:rPr><w:rFonts w:eastAsia="' + HEAD_EA + '" w:ascii="'
+    + FONT_LATIN + '" w:hAnsi="' + FONT_LATIN + '"/><w:b/><w:sz w:val="32"/>'
+    '<w:color w:val="' + TEXT_COLOR + '"/></w:rPr>'
     '</w:style>'
     '<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/>'
     '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>'
     '<w:pPr><w:outlineLvl w:val="1"/><w:spacing w:before="200" w:after="100"/>'
-    '</w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:color w:val="1F3864"/></w:rPr>'
+    '</w:pPr><w:rPr><w:rFonts w:eastAsia="' + HEAD_EA + '" w:ascii="'
+    + FONT_LATIN + '" w:hAnsi="' + FONT_LATIN + '"/><w:b/><w:sz w:val="26"/>'
+    '<w:color w:val="' + TEXT_COLOR + '"/></w:rPr>'
     '</w:style>'
     '<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/>'
     '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>'
     '<w:pPr><w:outlineLvl w:val="2"/><w:spacing w:before="160" w:after="80"/>'
-    '</w:pPr><w:rPr><w:b/><w:sz w:val="23"/><w:color w:val="2E5496"/></w:rPr>'
+    '</w:pPr><w:rPr><w:rFonts w:eastAsia="' + HEAD_EA + '" w:ascii="'
+    + FONT_LATIN + '" w:hAnsi="' + FONT_LATIN + '"/><w:b/><w:sz w:val="23"/>'
+    '<w:color w:val="' + TEXT_COLOR + '"/></w:rPr>'
     '</w:style>'
     '<w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/>'
     '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>'
     '<w:pPr><w:outlineLvl w:val="3"/><w:spacing w:before="120" w:after="60"/>'
-    '</w:pPr><w:rPr><w:b/><w:sz w:val="21"/><w:color w:val="2E5496"/></w:rPr>'
+    '</w:pPr><w:rPr><w:rFonts w:eastAsia="' + HEAD_EA + '" w:ascii="'
+    + FONT_LATIN + '" w:hAnsi="' + FONT_LATIN + '"/><w:b/><w:sz w:val="21"/>'
+    '<w:color w:val="' + TEXT_COLOR + '"/></w:rPr>'
     '</w:style>'
     '<w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/>'
     '<w:tblPr><w:tblBorders>'
@@ -553,7 +567,7 @@ STYLES = (
     '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>'
     '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>'
     '</w:tblBorders></w:tblPr></w:style>'
-    '</w:styles>') % (FONT, FONT, FONT, FONT)
+    '</w:styles>')
 
 CORE = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
