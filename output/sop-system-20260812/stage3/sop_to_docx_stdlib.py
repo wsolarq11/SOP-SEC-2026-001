@@ -107,24 +107,14 @@ _NUM_RE = re.compile(r"^[\d.\-/:\s]+$")  # 可运算数值/IP -> 右对齐
 
 
 def col_widths(rows, header=True, total=9000):
-    """列宽分配。
+    """列宽按内容长度加权分配（中文=2 单位，其他=1），短列自然变窄。
 
-    - 表单类（header=False，如文件信息表）：AutoFit Contents——每列宽度=
-      该列最大内容宽度（中文210/西文105 twips + 边距226），表格不撑满页面。
-    - 数据类（header=True）：AutoFit Window——按内容加权分配 9000（100% 页面宽），
-      表头行（第一行）权重 x2，保证表头单行（对齐 Microsoft 官方风格指南
-      "Balance row height by increasing the width of text-heavy columns"）。
+    所有表格统一 AutoFit Window（100% 页面宽，多表格文档宽度一致）；
+    表头行（第一行）权重 x2——保证标题单元格单行显示（对齐微软官方
+    风格指南 "Balance row height by increasing the width of text-heavy
+    columns" 与 "keep text in each cell brief—ideally one line"）。
     """
     ncol = max(len(r) for r in rows) if rows else 1
-    if not header:
-        ws = []
-        for ci in range(ncol):
-            w = 1
-            for r in rows:
-                txt = r[ci] if ci < len(r) else ""
-                w = max(w, sum(210 if ord(c) > 127 else 105 for c in txt))
-            ws.append(w + 226)
-        return ws
     widths = [1] * ncol
     for ri, r in enumerate(rows):
         factor = 2.0 if (header and ri == 0) else 1.0
@@ -189,13 +179,11 @@ def table(rows, header=True):
                '<w:bottom w:w="57" w:type="dxa"/>'
                '<w:right w:w="113" w:type="dxa"/>'
                "</w:tblCellMar>")
-    # 表单类（header=False）AutoFit Contents：表格宽=内容宽，不撑满页面；
-    # 数据类（header=True）AutoFit Window：100% 页面宽。
-    tblw = ('<w:tblW w:w="auto" w:type="auto"/>' if not header
-            else '<w:tblW w:w="5000" w:type="pct"/>')
+    # 所有表格统一 AutoFit Window（100% 页面宽）——多表格文档一致性
+    # （myuptech: "Use AutoFit Window for a uniform table width when you have multiple tables"）
     tblpr = ('<w:tblPr><w:tblStyle w:val="TableGrid"/>'
-             '%s%s%s</w:tblPr>'
-             % (tblw, cellmar, borders))
+             '<w:tblW w:w="5000" w:type="pct"/>%s%s</w:tblPr>'
+             % (cellmar, borders))
     body = ""
     for ri, row in enumerate(rows):
         is_header = header and ri == 0
