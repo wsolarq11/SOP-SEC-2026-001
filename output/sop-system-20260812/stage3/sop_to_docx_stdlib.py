@@ -135,7 +135,8 @@ def compute_col_aligns(rows, header=True):
     for ci in range(ncol):
         vals = [r[ci].strip() for r in data if ci < len(r) and r[ci].strip()]
         if not header:
-            aligns.append("left")
+            # 表单类（如文件信息表）：第一列行标签居中（W3C th scope=row），值列左对齐
+            aligns.append("center" if ci == 0 else "left")
         elif not vals:
             aligns.append("center")
         elif all(_DATE_RE.match(v) or _VER_RE.match(v) or _INT_RE.match(v)
