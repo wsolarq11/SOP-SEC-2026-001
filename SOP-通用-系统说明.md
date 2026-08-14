@@ -1,3 +1,14 @@
+---
+document_id: REF-GEN-2026-001
+title: SOP与规范库 · 系统说明
+category: GEN
+doc_type: reference
+version: 1.0
+status: Draft
+author: 段天俊
+last_reviewed: 2026-08-14
+---
+
 # SOP与规范库 · 系统说明
 
 > 本知识库用于沉淀团队的企业 IT SOP、操作规范、步骤与流程，可按需导出为 .docx 文档。

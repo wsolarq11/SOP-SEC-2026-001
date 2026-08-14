@@ -33,6 +33,7 @@ FM_LABELS = {
     "document_id": "文档编号",
     "title": "标题",
     "category": "分类",
+    "doc_type": "文档类型",
     "version": "版本",
     "status": "状态",
     "author": "编制人",
@@ -40,6 +41,15 @@ FM_LABELS = {
     "effective_date": "生效日期",
     "review_due": "复审日期",
     "last_reviewed": "上次复审",
+}
+
+# doc_type 值 -> 中文（展示层翻译，机器层保持英文枚举）
+DOC_TYPE_ZH = {
+    "policy": "方针",
+    "standard": "标准",
+    "procedure": "程序",
+    "guideline": "指南",
+    "reference": "参考说明",
 }
 
 
@@ -287,7 +297,14 @@ def parse_md(md):
         print("WARNING: front matter 缺失字段 %s（源文件可能被外部改写）" % missing)
 
     body = ""
-    fm_rows = [[FM_LABELS.get(k, k), v] for k, v in fm.items() if k != "title"]
+    fm_rows = []
+    for k, v in fm.items():
+        if k == "title":
+            continue
+        # doc_type 值翻译为中文（展示层），其余原样
+        if k == "doc_type":
+            v = DOC_TYPE_ZH.get(v, v)
+        fm_rows.append([FM_LABELS.get(k, k), v])
 
     # 预扫描：提取正文「审批信息」表（编制人/审核人/批准人/生效日期）并入信息表，
     # 形成一张合并的「文件信息表」（对齐质量管理 SOP 封面模板的单表格式）。
