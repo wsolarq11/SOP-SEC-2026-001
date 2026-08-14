@@ -116,11 +116,26 @@ def cell_align(val, is_header):
     return "left"
 
 
+def col_widths(rows, total=9000):
+    """列宽按内容长度加权分配（中文=2 单位，其他=1），短列自然变窄。"""
+    ncol = max(len(r) for r in rows) if rows else 1
+    widths = [1] * ncol
+    for r in rows:
+        for ci in range(min(ncol, len(r))):
+            w = sum(2 if ord(c) > 127 else 1 for c in r[ci])
+            if w > widths[ci]:
+                widths[ci] = w
+    tw = sum(widths) or 1
+    col_w = [max(900, int(total * w / tw)) for w in widths]
+    col_w[-1] += total - sum(col_w)  # 修正总和=页面内容宽
+    return col_w
+
+
 def table(rows, header=True):
     ncol = max(len(r) for r in rows) if rows else 1
-    col_w = 9000 // ncol
+    col_ws = col_widths(rows)
     grid = ("<w:tblGrid>" +
-            "".join('<w:gridCol w:w="%d"/>' % col_w for _ in range(ncol)) +
+            "".join('<w:gridCol w:w="%d"/>' % w for w in col_ws) +
             "</w:tblGrid>")
     borders = ("<w:tblBorders>"
                '<w:top w:val="single" w:sz="4" w:space="0" w:color="D0D5DD"/>'
@@ -130,23 +145,34 @@ def table(rows, header=True):
                '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="D0D5DD"/>'
                '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="D0D5DD"/>'
                "</w:tblBorders>")
+    cellmar = ("<w:tblCellMar>"
+               '<w:top w:w="57" w:type="dxa"/>'
+               '<w:left w:w="113" w:type="dxa"/>'
+               '<w:bottom w:w="57" w:type="dxa"/>'
+               '<w:right w:w="113" w:type="dxa"/>'
+               "</w:tblCellMar>")
     tblpr = ('<w:tblPr><w:tblStyle w:val="TableGrid"/>'
-             '<w:tblW w:w="5000" w:type="pct"/>%s</w:tblPr>' % borders)
+             '<w:tblW w:w="5000" w:type="pct"/>%s%s</w:tblPr>'
+             % (cellmar, borders))
     body = ""
     for ri, row in enumerate(rows):
         is_header = header and ri == 0
+        trpr = "<w:trPr><w:cantSplit/>"
+        if is_header:
+            trpr += "<w:tblHeader/>"
+        trpr += "</w:trPr>"
         cells = ""
         for ci in range(ncol):
             val = row[ci] if ci < len(row) else ""
-            tcpr = '<w:tcPr><w:tcW w:w="%d" w:type="dxa"/>' % col_w
+            tcpr = ('<w:tcPr><w:tcW w:w="%d" w:type="dxa"/>' % col_ws[ci])
             if is_header:
-                tcpr += '<w:shd w:val="clear" w:color="auto" w:fill="FEF3C7"/>'
+                tcpr += '<w:shd w:val="clear" w:color="auto" w:fill="E6E6E6"/>'
             tcpr += '<w:vAlign w:val="center"/></w:tcPr>'
             jc = cell_align(val, is_header)
             ppr = '<w:pPr><w:jc w:val="%s"/></w:pPr>' % jc
             p = "<w:p>%s%s</w:p>" % (ppr, runs_xml(val, base_bold=is_header))
             cells += "<w:tc>%s%s</w:tc>" % (tcpr, p)
-        body += "<w:tr>%s</w:tr>" % cells
+        body += "<w:tr>%s%s</w:tr>" % (trpr, cells)
     return "<w:tbl>%s%s%s</w:tbl>" % (tblpr, grid, body)
 
 
