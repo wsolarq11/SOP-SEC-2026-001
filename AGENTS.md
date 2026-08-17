@@ -8,7 +8,7 @@
 | 位置 | 角色 | git |
 | --- | --- | --- |
 | 本仓库（`D:\Program Files\worksc\SOPworksc\SOP-SEC-2026-001`） | **真相源**：md 源、生成器、REGISTRY | ✅ 跟踪（无 remote，纯本地） |
-| `C:\Users\11058\AppData\Local\Temp\sop-exports\` | **临时产物区**：docx 预览迭代、`publish\` 发布快照、上传凭证 json | ❌ 无 .git，也不是任何仓库的工作树 |
+| `C:\Users\11058\AppData\Local\Temp\sop-exports\` | **临时产物区**：docx 预览迭代、`publish\` 可重建发布快照（上传 token 见仓库根 `.publish-tokens`，不入库） | ❌ 无 .git，也不是任何仓库的工作树 |
 
 单向流水线：**git 源 md → 生成器 → docx → `%TEMP%\sop-exports\publish\`（发布文件）→ 上传飞书云盘（文件挂载）**。
 
@@ -37,12 +37,13 @@
 
 ## 四、知识库承载模式（2026-08-14 起 = 文件挂载）
 
-每文档两个飞书节点：`·成品`（docx 文件，点击即在线预览/可下载，无导入导出损耗）+ `·源文件`（md 文件，下载即 git 源）。更新走**同名覆盖**（file token 不变，节点不失效）。上传凭证类文件见 `%TEMP%\sop-exports\*_create.json`（腾讯云 COS 预签名凭证，`markdown_/word_` media_id，8/13 曾用于上传）。
+每文档两个飞书节点：`·成品`（docx 文件，点击即在线预览/可下载，无导入导出损耗）+ `·源文件`（md 文件，下载即 git 源）。更新走**同名覆盖**（file token 不变，节点不失效）。上传 token 见仓库根 `.publish-tokens`（gitignore 忽略，不入库）；8/13 曾使用临时区 `*_create.json` 预签名凭证，当前 publish.sh 不再依赖该路径。
 
 ## 五、%TEMP%\sop-exports 的真相与纪律
 
 - **为什么放 %TEMP%**：本机文件监视器会把写进工作区/个人目录的 .docx 替换成损坏桩（.gitignore 注释为据；实测工作区及上级目录零 docx，docx 只存在于 %TEMP%）。docx 生成与发布文件全放这里，**用完即弃**
-- **`publish\` 是快照不是镜像**：实测 `publish\SOP-SEC-2026-001.md`、`publish\REGISTRY.md` 已滞后于 git 源（缺少 doc_type 字段）→ **发布前必须从 git 源重新导出，勿直接复用 publish 里的旧文件**
+- **`publish\` 是可重建快照，不是镜像**：临时区可能随时被清空，publish.sh 通过 `mkdir -p` 自动重建；发布前必须从 git 源重新构建，勿复用旧快照
+- **临时区路径由 publish.sh 管理**：当前默认 `C:/Users/11058/AppData/Local/Temp/sop-exports/publish`，可用 `PUB` 环境变量覆盖；换账号/机器时不要假设该目录或旧文件仍存在
 - **清掉 %TEMP% 的后果**：docx 可由生成器重建、md 可从 git 恢复——唯一例外见 §六
 
 ## 六、未决事项（2026-08-14 已清零）

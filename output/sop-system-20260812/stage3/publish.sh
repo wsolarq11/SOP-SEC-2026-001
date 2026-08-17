@@ -20,7 +20,7 @@ PY="${PY:-C:/Users/11058/.workbuddy/binaries/python/versions/3.13.12/python.exe}
 STAGE="$ROOT/output/sop-system-20260812/stage3"
 CONV="$STAGE/sop_to_docx_stdlib.py"
 CHECK="$STAGE/check_docs.py"
-PUB="C:/Users/11058/AppData/Local/Temp/sop-exports/publish"
+PUB="${PUB:-C:/Users/11058/AppData/Local/Temp/sop-exports/publish}"
 
 DRY=0
 [[ "${1:-}" == "--dry-run" ]] && DRY=1 && shift
