@@ -1,7 +1,7 @@
 # AGENTS.md — SOP 知识库工作区指南
 
 > 本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。
-> 最后核实：2026-08-14（全部事实经文件系统与 git 历史逐一验证）。
+> 最后核实：2026-08-17（REGISTRY 发布契约落地后经 dry-run 验证）。
 
 ## 一、仓库定位：源 vs 临时区
 
@@ -18,9 +18,11 @@
 - `output/sop-system-20260812/stage3/` — docx 生成工具链：
   - `sop_to_docx_stdlib.py <input.md> <output.docx>`（纯 stdlib，主生成器）
   - `sop_to_docx.py`（依赖版，功能同前）
-  - `check_docs.py`（健康检查：front matter 完整性校验）
+  - `check_docs.py`（健康检查：front matter 完整性 + REGISTRY 发布契约一致性）
+  - `registry_lib.py`（REGISTRY 表解析与契约校验共享库）
+  - `registry_manifest.py`（从 REGISTRY 生成 publish.sh 发布清单）
   - `docx_template.b64`（docx 模板）
-  - `publish.sh`（发布管线：构建-校验-发布-报告，`--dry-run`；上传 token 见 `.publish-tokens`，不入库）
+  - `publish.sh`（发布管线：构建-校验-发布-报告，`--dry-run`；清单由 REGISTRY 自动生成，上传 token 见 `.publish-tokens`，不入库）
 - `.gitignore` 关键规则：
   - `*.docx` **绝不入库**——本机有文件监视器会损坏 .docx，这是初始化提交就写明的纪律
   - `output/**/stage2/`、`output/**/restructured.html` 为可复现中间产物，不入库
@@ -33,6 +35,7 @@
 - IMS 层级：L1 方针 / L2 跨部门程序 / L3 作业指导书+记录
 - 域名代码：INFRA / SEC / APP / DESK / DR / GEN，各绑定默认关联标准（SEC→ISO/IEC 27001，APP/DESK→ISO/IEC 20000-1，其余→ISO 9001）
 - 目标目录：飞书 Wiki「企业IT-SOP知识库」的 `00-总纲与索引` … `07-参考与说明`，与线上落位一一对应
+- **发布契约（2026-08-17 起）**：`publish.sh` 的构建/发布清单由 REGISTRY「已分配编号」表自动生成，不再维护脚本内 manifest；docx 输出名 = 源文件 basename 的 `.md` 换成 `.docx`，`Retired` 不发布，缺 token 即失败
 - md front matter schema（新格式，faa3c44 起连坐升级）：`document_id / title / category / doc_type / version / status / author / approver`（旧字段 `doc_number / domain / owner` 已废弃，勿再用）
 
 ## 四、知识库承载模式（2026-08-14 起 = 文件挂载）
@@ -52,11 +55,11 @@
 
 ## 七、标准工作流
 
-1. 编辑/新建 md 源（放 `sops/`；系统说明类归 `07-参考与说明`），同步登记 `REGISTRY.md`（编号、类型、层级、域名、目标目录）
-2. 跑 `check_docs.py` 健康检查（front matter 完整性）
-3. 生成 docx：`python output/sop-system-20260812/stage3/sop_to_docx_stdlib.py <input.md> <output.docx>`，输出到 `%TEMP%\sop-exports\publish\`（同名覆盖）
+1. 编辑/新建 md 源（放 `sops/`；系统说明类归 `07-参考与说明`），同步登记 `REGISTRY.md`（编号、类型、层级、域名、目标目录；发布清单会自动包含该条目）
+2. 跑 `check_docs.py` 健康检查（front matter 完整性 + REGISTRY 契约一致性）
+3. 构建验证：`bash output/sop-system-20260812/stage3/publish.sh --dry-run`，输出到 `%TEMP%\sop-exports\publish\`（docx 不入库）
 4. git 提交 md 源与生成器改动（docx 一律不入库）
-5. 上传飞书：成品 docx + 源文件 md 同名覆盖对应节点
+5. 上传飞书：`bash output/sop-system-20260812/stage3/publish.sh`（成品 docx + 源文件 md 同名覆盖对应节点）
 
 ## 八、禁忌
 

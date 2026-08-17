@@ -1,7 +1,7 @@
 """check_docs.py - SOP 源文件健康检查
 
 校验全部 md 源（sops/*.md + 根目录 SOP-通用-系统说明.md）的 front matter
-完整性，并检测文件是否被外部进程静默改写（对比 git HEAD）。
+完整性、REGISTRY 发布契约一致性，并检测文件是否被外部进程静默改写（对比 git HEAD）。
 
 背景：2026-08-14 规文源文件曾被外部进程改写（front matter 丢字段 +
 表格被格式化），生成 docx 时才发现。此脚本用于定期/手动巡检。
@@ -14,9 +14,11 @@ import os
 import subprocess
 import sys
 
-# 仓库根 = 脚本所在 stage3 目录上三级（不依赖运行时 cwd）
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+from registry_lib import (
+    ROOT,
+    parse_registry,
+    validate_registry_entries,
+)
 
 # 新 schema（faa3c44 起）：8 字段。旧字段 doc_number/domain/owner 已废弃。
 REQUIRED = ["document_id", "title", "category", "doc_type",
@@ -56,6 +58,31 @@ def collect_md(dirs):
     return files
 
 
+def validate_registry_contract(files):
+    """REGISTRY 发布契约：结构、源文件、front matter 一致性、未登记 md。"""
+    issues = 0
+    entries, errors = parse_registry()
+    reg_issues, registered_sources = validate_registry_entries(entries, errors)
+    issues += reg_issues
+
+    unregistered = []
+    for abspath in sorted(set(files)):
+        rel = os.path.relpath(abspath, ROOT).replace(os.sep, "/")
+        with open(abspath, encoding="utf-8") as f:
+            text = f.read()
+        if not text.startswith("---\n"):
+            continue
+        fm = parse_fm(text)
+        if rel not in registered_sources and fm.get("document_id") not in {
+            e["document_id"] for e in entries
+        }:
+            unregistered.append(rel)
+    for rel in unregistered:
+        issues += 1
+        print("[FAIL] %s: 未在 REGISTRY「已分配编号」登记" % rel)
+    return issues
+
+
 def main():
     dirs = sys.argv[1:] or [os.path.join(ROOT, "sops")]
     issues = 0
@@ -81,9 +108,11 @@ def main():
         )
         if r.returncode == 1:
             print("[DIFF] %s: 与 git HEAD 不一致（未提交修改，如非本人操作请核查）" % rel)
+    # 3) REGISTRY 发布契约
+    issues += validate_registry_contract(files)
     total = len(files)
     if issues == 0:
-        print("OK: 全部 %d 个文档 front matter 完整" % total)
+        print("OK: 全部 %d 个文档 front matter 完整，REGISTRY 契约一致" % total)
     else:
         print("发现 %d 个问题" % issues)
         sys.exit(1)

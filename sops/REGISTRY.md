@@ -46,6 +46,13 @@
 | 06-GEN-通用 | GEN | 跨域基础规范（standard / guideline）|
 | 07-参考与说明 | 跨域 | 描述性文档（reference）：系统说明、使用指南、FAQ |
 
+## 发布契约（REGISTRY 驱动，2026-08-17 起）
+
+- 本节下表（「已分配编号」）是 publish.sh 构建/发布清单的**唯一机器来源**；新增或停用文档只改本表与源文件，不再手工维护 `stage3/publish.sh` 里的 manifest。
+- docx 输出名 = 源文件列 basename 的 `.md` 换成 `.docx`（REGISTRY.md 本身只同步/上传 md，docx 输出为 `NONE`）。
+- 状态为 `Retired` 的文档不进入构建/发布清单；其余条目必须源文件存在，且 front matter 的 `document_id / title / category / doc_type / version / status` 与下表一致。
+- 每个清单条目必须提供 md/docx 上传 token（`.publish-tokens`），缺失即发布失败；`--dry-run` 同样检查 token 完备性。
+
 ## 已分配编号
 | 文档号 | 标题 | 层级 | 类型 | 域名 | 版本 | 关联标准 | 编制人 | 状态 | 源文件 | 目标目录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
