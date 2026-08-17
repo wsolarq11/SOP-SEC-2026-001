@@ -6,8 +6,9 @@
 # 发布契约：REGISTRY.md「已分配编号」表是清单唯一来源。
 #   - docx 输出名 = 源文件 basename 的 .md 换成 .docx
 #   - Retired 文档不进入清单
-#   - REGISTRY.md 只同步/上传 md（docx 输出为 NONE）
-#   - 每个清单条目必须提供 md/docx 上传 token，缺失即失败
+#   - REGISTRY.md 不生成 docx（输出为 NONE），源码随仓库 bundle 备份
+#   - 发布只上传 docx；md 不再单独上传
+#   - 每个 docx 条目必须提供 docx 上传 token，缺失即失败
 #
 # 用法:
 #   bash publish.sh            # 全量构建+校验+上传
@@ -52,7 +53,6 @@ printf '  %s
 ' "${MANIFEST[@]}"
 
 # 读取上传 token（gitignore 忽略，不入库）
-declare -A MDTOK
 declare -A DOCTOK
 if [ ! -f "$ROOT/.publish-tokens" ]; then
   echo "❌ 缺少 $ROOT/.publish-tokens（上传 token 映射），无法发布"
@@ -60,7 +60,6 @@ if [ ! -f "$ROOT/.publish-tokens" ]; then
 fi
 while IFS='|' read -r mdrel mdtok docxtok; do
   [ -z "$mdrel" ] && continue
-  MDTOK["$mdrel"]="$mdtok"
   DOCTOK["$mdrel"]="$docxtok"
 done < <(tr -d "\r" < "$ROOT/.publish-tokens")
 
@@ -73,13 +72,8 @@ for entry in "${MANIFEST[@]}"; do
   if [ "$TARGET" != "ALL" ] && [ "$mdrel" != "$TARGET" ] && [ "$docxname" != "$TARGET" ]; then
     continue
   fi
-  if [ "$docxname" != "NONE" ] && { [ -z "${MDTOK[$mdrel]:-}" ] || [ "${MDTOK[$mdrel]}" = "NONE" ] || [ -z "${DOCTOK[$mdrel]:-}" ] || [ "${DOCTOK[$mdrel]}" = "NONE" ]; }; then
-    echo "  ❌ 缺少上传 token: $mdrel（md 和/或 docx）"
-    FAIL=$((FAIL+1))
-    continue
-  fi
-  if [ -z "${MDTOK[$mdrel]:-}" ] || [ "${MDTOK[$mdrel]}" = "NONE" ]; then
-    echo "  ❌ 缺少 md 上传 token: $mdrel"
+  if [ "$docxname" != "NONE" ] && { [ -z "${DOCTOK[$mdrel]:-}" ] || [ "${DOCTOK[$mdrel]}" = "NONE" ]; }; then
+    echo "  ❌ 缺少 docx 上传 token: $mdrel"
     FAIL=$((FAIL+1))
   fi
 done
@@ -90,7 +84,7 @@ else
 fi
 
 echo
-echo "== [3/4] 构建 docx + 同步 md 到 publish =="
+echo "== [3/4] 构建 docx 到 publish =="
 OK=0
 declare -A BUILT_OK
 for entry in "${MANIFEST[@]}"; do
@@ -99,16 +93,19 @@ for entry in "${MANIFEST[@]}"; do
     continue
   fi
   echo "--- $mdrel ---"
-  if ! cp "$ROOT/$mdrel" "$PUB/$(basename "$mdrel")" 2>/dev/null; then
-    echo "  ❌ md 缺失: $mdrel"; FAIL=$((FAIL+1)); continue
+  if [ "$docxname" = "NONE" ]; then
+    echo "  ✅ 仅仓库源码（不生成/上传 docx）"
+    BUILT_OK["$mdrel"]=1
+    OK=$((OK+1))
+    continue
   fi
-  echo "  ✅ md 同步: $(basename "$mdrel")"
-  if [ "$docxname" != "NONE" ]; then
-    if ! "$PY" "$CONV" "$ROOT/$mdrel" "$PUB/$docxname" >/dev/null 2>&1; then
-      echo "  ❌ docx 生成失败: $docxname"; FAIL=$((FAIL+1)); continue
-    fi
-    echo "  ✅ docx 生成: $docxname"
+  if [ ! -f "$ROOT/$mdrel" ]; then
+    echo "  ❌ md 源缺失: $mdrel"; FAIL=$((FAIL+1)); continue
   fi
+  if ! "$PY" "$CONV" "$ROOT/$mdrel" "$PUB/$docxname" >/dev/null 2>&1; then
+    echo "  ❌ docx 生成失败: $docxname"; FAIL=$((FAIL+1)); continue
+  fi
+  echo "  ✅ docx 生成: $docxname"
   BUILT_OK["$mdrel"]=1
   OK=$((OK+1))
 done
@@ -137,14 +134,6 @@ for entry in "${MANIFEST[@]}"; do
       echo "  ✅ docx 上传: $docxname"
     else
       echo "  ❌ docx 上传失败: $docxname"; FAIL=$((FAIL+1))
-    fi
-  fi
-  mdname="$(basename "$mdrel")"
-  if [ -n "${MDTOK[$mdrel]:-}" ] && [ "${MDTOK[$mdrel]}" != "NONE" ]; then
-    if lark-cli drive +upload --file "./$mdname" --file-token "${MDTOK[$mdrel]}" --as user --format json 2>/dev/null | grep -q '"ok": true'; then
-      echo "  ✅ md 上传: $mdname"
-    else
-      echo "  ❌ md 上传失败: $mdname"; FAIL=$((FAIL+1))
     fi
   fi
 done

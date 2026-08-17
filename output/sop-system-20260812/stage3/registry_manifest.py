@@ -8,7 +8,7 @@
 规则：
 - 以 REGISTRY「已分配编号」表为唯一来源，Retired 文档不进入清单。
 - docx 输出名 = 源文件 basename 的 .md 换成 .docx。
-- REGISTRY.md 本身只同步/上传 md，docx 输出为 NONE。
+- REGISTRY.md 不生成 docx（输出为 NONE），源码随仓库 bundle 备份。
 """
 import os
 import sys
