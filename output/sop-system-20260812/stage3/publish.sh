@@ -23,12 +23,19 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -W)"
-PY="${PY:-C:/Users/11058/.workbuddy/binaries/python/versions/3.13.12/python.exe}"
+if [ -n "${PY:-}" ]; then
+  :
+elif [ -x "C:/Users/11058/.workbuddy/binaries/python/versions/3.13.12/python.exe" ]; then
+  PY="C:/Users/11058/.workbuddy/binaries/python/versions/3.13.12/python.exe"
+else
+  PY="python"
+fi
 STAGE="$ROOT/output/sop-system-20260812/stage3"
 CONV="$STAGE/sop_to_docx_stdlib.py"
 CHECK="$STAGE/check_docs.py"
 MANIFEST_GEN="$STAGE/registry_manifest.py"
 PUB="${PUB:-C:/Users/11058/AppData/Local/Temp/sop-exports/publish}"
+AS="${AS:-user}"
 
 DRY=0
 [[ "${1:-}" == "--dry-run" ]] && DRY=1 && shift
@@ -130,7 +137,7 @@ for entry in "${MANIFEST[@]}"; do
     continue
   fi
   if [ "$docxname" != "NONE" ] && [ -n "${DOCTOK[$mdrel]:-}" ] && [ "${DOCTOK[$mdrel]}" != "NONE" ]; then
-    if lark-cli drive +upload --file "./$docxname" --file-token "${DOCTOK[$mdrel]}" --as user --format json 2>/dev/null | grep -q '"ok": true'; then
+    if lark-cli drive +upload --file "./$docxname" --file-token "${DOCTOK[$mdrel]}" --as "$AS" --format json 2>/dev/null | grep -q '"ok": true'; then
       echo "  ✅ docx 上传: $docxname"
     else
       echo "  ❌ docx 上传失败: $docxname"; FAIL=$((FAIL+1))
