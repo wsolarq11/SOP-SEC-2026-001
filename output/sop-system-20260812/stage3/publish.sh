@@ -138,10 +138,13 @@ for entry in "${MANIFEST[@]}"; do
     continue
   fi
   if [ "$docxname" != "NONE" ] && [ -n "${DOCTOK[$mdrel]:-}" ] && [ "${DOCTOK[$mdrel]}" != "NONE" ]; then
-    if lark-cli drive +upload --file "./$docxname" --file-token "${DOCTOK[$mdrel]}" --as "$AS" --format json 2>/dev/null | grep -q '"ok": true'; then
+    UPLOAD_OUTPUT="$(lark-cli drive +upload --file "./$docxname" --file-token "${DOCTOK[$mdrel]}" --as "$AS" --format json 2>&1 || true)"
+    if grep -q '"ok": true' <<< "$UPLOAD_OUTPUT"; then
       echo "  ✅ docx 上传: $docxname"
     else
-      echo "  ❌ docx 上传失败: $docxname"; FAIL=$((FAIL+1))
+      echo "  ❌ docx 上传失败: $docxname"
+      printf '%s\n' "$UPLOAD_OUTPUT" | grep -Eo '"message": *"[^"]*"' | head -n 1
+      FAIL=$((FAIL+1))
     fi
   fi
 done
