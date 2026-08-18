@@ -5,9 +5,6 @@ on:
     branches: [master]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
   validate:
     name: Validate and build
@@ -40,16 +37,3 @@ jobs:
           PY: python
           PUB: ${{ runner.temp }}\sop-exports\publish
         run: bash output/sop-system-20260812/stage3/publish.sh --dry-run
-
-      - name: Publish docx to Feishu
-        if: ${{ secrets.LARK_APP_ID != '' && secrets.LARK_APP_SECRET != '' }}
-        shell: pwsh
-        env:
-          APP_ID: ${{ secrets.LARK_APP_ID }}
-          APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
-          PY: python
-          AS: bot
-          PUB: ${{ runner.temp }}\sop-exports\publish
-        run: |
-          $env:APP_SECRET | lark-cli config init --app-id $env:APP_ID --app-secret-stdin --brand feishu
-          bash output/sop-system-20260812/stage3/publish.sh
