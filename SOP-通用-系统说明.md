@@ -8,8 +8,6 @@ status: Draft
 author: 段天俊
 approver: 待定
 effective_date: 待定
-review_due: 2027-08-14
-last_reviewed: 2026-08-14
 ---
 
 # SOP与规范库 · 系统说明

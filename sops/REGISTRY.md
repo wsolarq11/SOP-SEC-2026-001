@@ -7,6 +7,7 @@
 > 2026-08-14 起：知识库承载模式 = **文件挂载**（非在线文档导入）。每文档一个 `·成品` 节点（docx 文件，点击即在线预览/可下载，无导入导出损耗）。更新走同名覆盖（file token 不变，节点不失效）。
 > 2026-08-14 起：每条文档登记「文档类型」（doc_type：policy 方针 / standard 标准 / procedure 程序 / guideline 指南 / reference 参考说明），区分强制规范与描述性文档；参考类（如系统说明）归入 `07-参考与说明` 目录，与规范类分离。
 > 2026-08-18 起：md 源不再单独上传到飞书；源码由 GitHub 私有 remote 与 `%TEMP%\sop-exports\backup\` git bundle 备份（见 AGENTS §四/§五）。内容目录只放 docx 成品，REGISTRY 仍为索引，留在 00。
+> 2026-08-18 起：front matter schema 收敛——level / review_due / last_reviewed / related_standards 不再写入 front matter；「层级」与「关联标准」以本表为唯一权威（生成器与发布契约均不消费上述字段，仅本表承载索引语义）。
 
 ## 文档类型（doc_type，治理文档四层 + 参考）
 | 类型 | 规范性 | 语义 | 示例 |
