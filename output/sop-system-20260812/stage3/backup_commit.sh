@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================
-# git 仓库备份：无 remote 的“git push”
+# git 仓库备份：与 GitHub remote 互补的飞书云端 bundle（无远端服务器时的“git push”等价物）
 #
 # post-commit hook 在每次本地 commit 后调用：
 #   git bundle create --all HEAD  ->  %TEMP%\sop-exports\backup\*.bundle
@@ -170,6 +170,12 @@ upload_bundle() {
     say "lark-cli 输出:"
     say "$out"
     die "飞书上传失败"
+  fi
+  returned="$(printf '%s\n' "$out" | sed -n 's/.*"file_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  if [ -z "$returned" ] || [ "$returned" != "$token" ]; then
+    say "lark-cli 输出:"
+    say "$out"
+    die "上传返回 file_token 与登记不一致"
   fi
 }
 

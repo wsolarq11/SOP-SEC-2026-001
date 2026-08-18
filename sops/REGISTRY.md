@@ -4,9 +4,9 @@
 > 编号规则：`SOP-<域名>-<年>-<序号>`（序号按 域名+年 各自递增）。
 > 2026-08-13 起：每条文档登记「层级」与「关联标准」，使编号体系与 ISO 9001 / ISO/IEC 27001 / ISO/IEC 20000-1 三套标准绑定。
 > 2026-08-13 起：每条文档登记「目标目录」（飞书 Wiki 知识库「企业IT-SOP知识库」内的一级目录），与线上落位一一对应。
-> 2026-08-14 起：知识库承载模式 = **文件挂载**（非在线文档导入）。每文档两节点：`·成品`（docx 文件，点击即在线预览/可下载，无导入导出损耗）+ `·源文件`（md 文件，下载即 git 源）。更新走同名覆盖（file token 不变，节点不失效）。
+> 2026-08-14 起：知识库承载模式 = **文件挂载**（非在线文档导入）。每文档一个 `·成品` 节点（docx 文件，点击即在线预览/可下载，无导入导出损耗）。更新走同名覆盖（file token 不变，节点不失效）。
 > 2026-08-14 起：每条文档登记「文档类型」（doc_type：policy 方针 / standard 标准 / procedure 程序 / guideline 指南 / reference 参考说明），区分强制规范与描述性文档；参考类（如系统说明）归入 `07-参考与说明` 目录，与规范类分离。
-> 2026-08-14 起：飞书知识库 md 源文件统一存放 `90-源文件（MD）` 目录（展示层与源材料分离）；内容目录（00/01/06/07）只放 docx 成品。REGISTRY 仍为索引，留在 00。
+> 2026-08-18 起：md 源不再单独上传到飞书；源码由 GitHub 私有 remote 与 `%TEMP%\sop-exports\backup\` git bundle 备份（见 AGENTS §四/§五）。内容目录只放 docx 成品，REGISTRY 仍为索引，留在 00。
 
 ## 文档类型（doc_type，治理文档四层 + 参考）
 | 类型 | 规范性 | 语义 | 示例 |
@@ -49,9 +49,9 @@
 ## 发布契约（REGISTRY 驱动，2026-08-17 起）
 
 - 本节下表（「已分配编号」）是 publish.sh 构建/发布清单的**唯一机器来源**；新增或停用文档只改本表与源文件，不再手工维护 `stage3/publish.sh` 里的 manifest。
-- docx 输出名 = 源文件列 basename 的 `.md` 换成 `.docx`（REGISTRY.md 本身只同步/上传 md，docx 输出为 `NONE`）。
+- docx 输出名 = 源文件列 basename 的 `.md` 换成 `.docx`（REGISTRY.md 不生成/上传 docx，输出为 `NONE`；md 源不再单独上传，源码随 GitHub remote 与 git bundle 备份）。
 - 状态为 `Retired` 的文档不进入构建/发布清单；其余条目必须源文件存在，且 front matter 的 `document_id / title / category / doc_type / version / status` 与下表一致。
-- 每个清单条目必须提供 md/docx 上传 token（`.publish-tokens`），缺失即发布失败；`--dry-run` 同样检查 token 完备性。
+- 每个 docx 清单条目必须提供 docx 上传 token（`.publish-tokens`），缺失即发布失败；`--dry-run` 同样检查 token 完备性。
 
 ## 已分配编号
 | 文档号 | 标题 | 层级 | 类型 | 域名 | 版本 | 关联标准 | 编制人 | 状态 | 源文件 | 目标目录 |

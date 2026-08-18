@@ -26,8 +26,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -W)"
 if [ -n "${PY:-}" ]; then
   :
-elif [ -x "C:/Users/11058/.workbuddy/binaries/python/versions/3.13.12/python.exe" ]; then
-  PY="C:/Users/11058/.workbuddy/binaries/python/versions/3.13.12/python.exe"
 else
   PY="python"
 fi
@@ -140,7 +138,14 @@ for entry in "${MANIFEST[@]}"; do
   if [ "$docxname" != "NONE" ] && [ -n "${DOCTOK[$mdrel]:-}" ] && [ "${DOCTOK[$mdrel]}" != "NONE" ]; then
     UPLOAD_OUTPUT="$(lark-cli drive +upload --file "./$docxname" --file-token "${DOCTOK[$mdrel]}" --as "$AS" --format json 2>&1 || true)"
     if grep -q '"ok": true' <<< "$UPLOAD_OUTPUT"; then
-      echo "  ✅ docx 上传: $docxname"
+      RETURNED_TOKEN="$(printf '%s\n' "$UPLOAD_OUTPUT" | sed -n 's/.*"file_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+      if [ -n "$RETURNED_TOKEN" ] && [ "$RETURNED_TOKEN" = "${DOCTOK[$mdrel]}" ]; then
+        echo "  ✅ docx 上传: $docxname"
+      else
+        echo "  ❌ docx 上传后 file_token 不一致: $docxname"
+        printf '%s\n' "$UPLOAD_OUTPUT" | grep -Eo '"message": *"[^"]*"' | head -n 1
+        FAIL=$((FAIL+1))
+      fi
     else
       echo "  ❌ docx 上传失败: $docxname"
       printf '%s\n' "$UPLOAD_OUTPUT" | grep -Eo '"message": *"[^"]*"' | head -n 1
