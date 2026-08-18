@@ -1,7 +1,7 @@
 # AGENTS.md — SOP 知识库工作区指南
 
 > 本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。
-> 最后核实：2026-08-18（GitHub 私有 remote + Actions 校验/构建通过）。
+> 最后核实：2026-08-18（GitHub Actions 校验、构建、bot 上传飞书全链路通过）。
 
 ## 一、仓库定位：源 vs 临时区
 
@@ -42,7 +42,7 @@
 
 ## 四、知识库承载模式（2026-08-14 起 = 文件挂载）
 
-每文档一个飞书节点：`·成品`（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走**同名覆盖**（file token 不变，节点不失效）。上传 token 见仓库根 `.publish-tokens`（gitignore 忽略，不入库）；8/13 曾使用临时区 `*_create.json` 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：`https://github.com/wsolarq11/SOP-SEC-2026-001.git`（私有，master）；`.github/workflows/publish.yml` 在 push 后自动跑 `check_docs.py` + docx 构建，并还原 `PUBLISH_TOKENS_B64` secret；`LARK_APP_ID`/`LARK_APP_SECRET` 未配置时飞书上传步骤自动跳过。仓库备份登记 `BACKUP_BUNDLE|<bundle file_token>|NONE`、`BACKUP_FOLDER|<90 目录 folder_token>|NONE`、`BACKUP_WIKI|<90 目录 wiki node_token>|NONE`，由 backup_commit.sh 读写。
+每文档一个飞书节点：`·成品`（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走**同名覆盖**（file token 不变，节点不失效）。上传 token 见仓库根 `.publish-tokens`（gitignore 忽略，不入库）；8/13 曾使用临时区 `*_create.json` 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：`https://github.com/wsolarq11/SOP-SEC-2026-001.git`（私有，master）；`.github/workflows/publish.yml` 在 push 后自动跑 `check_docs.py` + docx 构建，并还原 `PUBLISH_TOKENS_B64` secret；`LARK_APP_ID`/`LARK_APP_SECRET` 已配置为 GitHub secrets，CI 以 bot 身份自动上传；应用 `cli_aaf1518a8c789bd5` 已对现有 docx 成品文件获得 `full_access` 协作者权限。仓库备份登记 `BACKUP_BUNDLE|<bundle file_token>|NONE`、`BACKUP_FOLDER|<90 目录 folder_token>|NONE`、`BACKUP_WIKI|<90 目录 wiki node_token>|NONE`，由 backup_commit.sh 读写。
 
 ## 五、%TEMP%\sop-exports 的真相与纪律
 
