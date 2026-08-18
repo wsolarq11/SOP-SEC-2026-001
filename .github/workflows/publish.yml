@@ -13,18 +13,18 @@ jobs:
     name: Validate and build
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
 
       - name: Install lark-cli
-        run: npm install -g @larksuite/cli@1.0.86
+        run: npm install -g @larksuite/cli@1.0.87
 
       - name: Restore publish tokens
         shell: pwsh
