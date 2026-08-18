@@ -14,9 +14,10 @@ __pycache__/
 output/**/stage2/
 output/**/restructured.html
 
-# 工具元数据（飞书 skill 镜像/锁定文件、上传 token），不纳入 SOP 版本库
+# 工具元数据（飞书 skill 镜像/锁定文件、上传 token、DSH 缓存），不纳入 SOP 版本库
 skills-lock.json
 .agents/
 .claude/
 .zcode/
+.dsh/
 .publish-tokens

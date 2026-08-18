@@ -2,9 +2,10 @@
 # =============================================================
 # git 仓库备份：与 GitHub remote 互补的飞书云端 bundle（无远端服务器时的“git push”等价物）
 #
-# post-commit hook 在每次本地 commit 后调用：
+# post-commit / pre-push hook 在本地 commit / push 时调用：
 #   git bundle create --all HEAD  ->  %TEMP%\sop-exports\backup\*.bundle
 #   lark-cli drive +upload        ->  飞书云盘同名覆盖
+# GitHub 与飞书 bundle 为主副双备份，两者都必须成功；hook 失败会让 git 命令显式失败。
 #
 # bundle 包含全部已提交历史与分支，可用 git clone <file> 恢复。
 # 不包含工作区未提交改动，也不包含 .publish-tokens（gitignore 忽略）。
@@ -69,21 +70,24 @@ die() {
 command -v lark-cli >/dev/null 2>&1 || die "未找到 lark-cli，请确认其已加入 PATH"
 
 if [ "$UNINSTALL" = 1 ]; then
-  rm -f "$ROOT/.git/hooks/post-commit"
-  say "已移除 post-commit hook"
+  rm -f "$ROOT/.git/hooks/post-commit" "$ROOT/.git/hooks/pre-push"
+  say "已移除 post-commit / pre-push hook"
   exit 0
 fi
 
 if [ "$INSTALL" = 1 ]; then
-  HOOK="$ROOT/.git/hooks/post-commit"
-  mkdir -p "$(dirname "$HOOK")"
-  cat > "$HOOK" <<'HOOK_EOF'
+  HOOKS_DIR="$ROOT/.git/hooks"
+  mkdir -p "$HOOKS_DIR"
+  for HOOK_NAME in post-commit pre-push; do
+    HOOK="$HOOKS_DIR/$HOOK_NAME"
+    cat > "$HOOK" <<'HOOK_EOF'
 #!/bin/sh
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-bash "$ROOT/output/sop-system-20260812/stage3/backup_commit.sh" "$@" || true
+bash "$ROOT/output/sop-system-20260812/stage3/backup_commit.sh"
 HOOK_EOF
-  chmod +x "$HOOK"
-  say "已安装 post-commit hook: $HOOK"
+    chmod +x "$HOOK"
+    say "已安装 $HOOK_NAME hook: $HOOK"
+  done
   exit 0
 fi
 
