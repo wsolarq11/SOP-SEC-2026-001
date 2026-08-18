@@ -1,16 +1,16 @@
 # AGENTS.md — SOP 知识库工作区指南
 
 > 本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。
-> 最后核实：2026-08-17（REGISTRY 发布契约落地后经 dry-run 验证）。
+> 最后核实：2026-08-18（GitHub 私有 remote + Actions 校验/构建通过）。
 
 ## 一、仓库定位：源 vs 临时区
 
 | 位置 | 角色 | git |
 | --- | --- | --- |
-| 本仓库（`D:\Program Files\worksc\SOPworksc\SOP-SEC-2026-001`） | **真相源**：md 源、生成器、REGISTRY | ✅ 跟踪（无 remote，纯本地） |
+| 本仓库（`D:\Program Files\worksc\SOPworksc\SOP-SEC-2026-001`） | **真相源**：md 源、生成器、REGISTRY | ✅ 跟踪（私有 GitHub remote + 飞书 bundle 双备份） |
 | `C:\Users\11058\AppData\Local\Temp\sop-exports\` | **临时产物区**：docx 预览迭代、`publish\` 可重建发布快照、`backup\` 可重建仓库 bundle（上传 token 见仓库根 `.publish-tokens`，不入库） | ❌ 无 .git，也不是任何仓库的工作树 |
 
-单向流水线：**git 源 md → 生成器 → docx → `%TEMP%\sop-exports\publish\`（发布文件）→ 上传飞书云盘（文件挂载）**。
+单向流水线：**git 源 md → 生成器 → docx → `%TEMP%\sop-exports\publish\`（发布文件）→ 上传飞书云盘（文件挂载）**。GitHub 私有 remote 负责代码/历史同步，Actions 负责 push 后自动校验与构建。
 
 ## 二、仓库结构
 
@@ -23,7 +23,7 @@
   - `registry_manifest.py`（从 REGISTRY 生成 publish.sh 发布清单）
   - `docx_template.b64`（docx 模板）
   - `publish.sh`（发布管线：构建-校验-发布-报告，`--dry-run`；清单由 REGISTRY 自动生成，上传 token 见 `.publish-tokens`，不入库）
-  - `backup_commit.sh`（git 仓库备份：post-commit hook 生成完整 git bundle 并同名覆盖上传飞书，等价于无 remote 的 push；支持 `--install`/`--init`/`--dry-run`）
+  - `backup_commit.sh`（git 仓库备份：post-commit hook 生成完整 git bundle 并同名覆盖上传飞书，等价于无远端服务器的 push；支持 `--install`/`--init`/`--dry-run`）
   - `cleanup_90_md.py`（90 目录清理：列出并删除散装 md，先 `--dry-run` 审计，再 `--yes` 执行）
 - `.gitignore` 关键规则：
   - `*.docx` **绝不入库**——本机有文件监视器会损坏 .docx，这是初始化提交就写明的纪律
@@ -42,7 +42,7 @@
 
 ## 四、知识库承载模式（2026-08-14 起 = 文件挂载）
 
-每文档一个飞书节点：`·成品`（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走**同名覆盖**（file token 不变，节点不失效）。上传 token 见仓库根 `.publish-tokens`（gitignore 忽略，不入库）；8/13 曾使用临时区 `*_create.json` 预签名凭证，当前 publish.sh 不再依赖该路径。仓库备份登记 `BACKUP_BUNDLE|<bundle file_token>|NONE`、`BACKUP_FOLDER|<90 目录 folder_token>|NONE`、`BACKUP_WIKI|<90 目录 wiki node_token>|NONE`，由 backup_commit.sh 读写。
+每文档一个飞书节点：`·成品`（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走**同名覆盖**（file token 不变，节点不失效）。上传 token 见仓库根 `.publish-tokens`（gitignore 忽略，不入库）；8/13 曾使用临时区 `*_create.json` 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：`https://github.com/wsolarq11/SOP-SEC-2026-001.git`（私有，master）；`.github/workflows/publish.yml` 在 push 后自动跑 `check_docs.py` + docx 构建，并还原 `PUBLISH_TOKENS_B64` secret；`LARK_APP_ID`/`LARK_APP_SECRET` 未配置时飞书上传步骤自动跳过。仓库备份登记 `BACKUP_BUNDLE|<bundle file_token>|NONE`、`BACKUP_FOLDER|<90 目录 folder_token>|NONE`、`BACKUP_WIKI|<90 目录 wiki node_token>|NONE`，由 backup_commit.sh 读写。
 
 ## 五、%TEMP%\sop-exports 的真相与纪律
 
@@ -64,8 +64,9 @@
 2. 跑 `check_docs.py` 健康检查（front matter 完整性 + REGISTRY 契约一致性）
 3. 构建验证：`bash output/sop-system-20260812/stage3/publish.sh --dry-run`，输出到 `%TEMP%\sop-exports\publish\`（docx 不入库）
 4. git 提交 md 源与生成器改动（docx 一律不入库；已安装 post-commit hook 时自动构建完整 git bundle 并同名覆盖上传到飞书 90 目录）
-5. 上传飞书：`bash output/sop-system-20260812/stage3/publish.sh`（仅成品 docx 同名覆盖对应节点；md 不再单独上传）
-6. 一次性清理 90 目录旧 md：`python output/sop-system-20260812/stage3/cleanup_90_md.py --dry-run` 审计后，再 `--yes` 执行删除
+5. `git push origin master`：GitHub Actions 自动跑健康检查与 docx 构建；若配置了 `LARK_APP_ID`/`LARK_APP_SECRET` secret，自动上传飞书
+6. 本地上传飞书兜底：`bash output/sop-system-20260812/stage3/publish.sh`（仅成品 docx 同名覆盖对应节点；md 不再单独上传）
+7. 一次性清理 90 目录旧 md：`python output/sop-system-20260812/stage3/cleanup_90_md.py --dry-run` 审计后，再 `--yes` 执行删除
 
 ## 八、禁忌
 
@@ -73,5 +74,6 @@
 - 禁止 git 跟踪 `%TEMP%\sop-exports`
 - 禁止绕过 REGISTRY 分配编号
 - 禁止把 .bundle 或备份日志放进工作区（bundle 写到 `%TEMP%\sop-exports\backup`，日志在 `.git\backup-commit.log`）
+- 禁止把 GitHub token、Feishu appSecret、`.publish-tokens` 写进仓库文件；CI 凭据只放 GitHub secrets，本机凭据只放仓库外受控文件
 - 90 目录旧 md 只能通过 cleanup_90_md.py 的 `--yes` 删除；执行前必须先 `--dry-run` 看清单
 - 生成器排版基准（103c977）：正文宋体+Times New Roman+深灰 3F3F3F，标题黑体去蓝——改生成器时不得破坏
