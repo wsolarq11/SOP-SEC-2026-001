@@ -20,6 +20,7 @@
 #       飞书节点重建后 file_token 会变，需更新 .publish-tokens
 # =============================================================
 set -u
+export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -W)"
