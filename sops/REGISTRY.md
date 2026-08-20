@@ -1,4 +1,4 @@
-# SOP 编号总登记表（REGISTRY）
+# SOP 编号总登记表
 
 > 本表是 git 跟踪的**唯一编号权威**。新增文档时，按「域名 + 年」分配下一个 3 位序号并登记此表，防止重复与遗漏。
 > 编号规则：`SOP-<域名>-<年>-<序号>`（序号按 域名+年 各自递增）。
@@ -9,7 +9,7 @@
 > 2026-08-18 起：md 源不再单独上传到飞书；源码由 GitHub 私有 remote 与 `%TEMP%\sop-exports\backup\` git bundle 备份（见 AGENTS §四/§五）。内容目录只放 docx 成品，REGISTRY 仍为索引，留在 00。
 > 2026-08-18 起：front matter schema 收敛——level / review_due / last_reviewed / related_standards 不再写入 front matter；「层级」与「关联标准」以本表为唯一权威（生成器与发布契约均不消费上述字段，仅本表承载索引语义）。
 
-## 文档类型（doc_type，治理文档四层 + 参考）
+## 文档类型：doc_type
 | 类型 | 规范性 | 语义 | 示例 |
 | --- | --- | --- | --- |
 | policy | 强制 | 方针 / 定位总纲（what & why） | （待建） |
@@ -18,7 +18,7 @@
 | guideline | 非强制 | 建议 / 最佳实践（should / consider） | （待建） |
 | reference | 非规范 | 解释性 / 描述性（系统说明、手册、FAQ） | 系统说明、合规与标准定位 |
 
-## 层级说明（IMS 三级文件）
+## 层级说明：IMS 三级文件
 | 层级 | 含义 | 本库对应 |
 | --- | --- | --- |
 | L1 | 方针 / 定位总纲 | （待建） |
@@ -35,7 +35,7 @@
 | DR | 数据容灾 | ISO 9001 |
 | GEN | 通用 | ISO 9001 / 27001 / 20000（总纲） |
 
-## 目标目录（飞书 Wiki「企业IT-SOP知识库」）
+## 目标目录
 | 一级目录 | 域名 | 内容 |
 | --- | --- | --- |
 | 00-总纲与索引 | GEN（总纲） | REGISTRY 索引 |
@@ -47,7 +47,7 @@
 | 06-GEN-通用 | GEN | 跨域基础规范（standard / guideline）|
 | 07-参考与说明 | 跨域 | 描述性文档（reference）：系统说明、使用指南、FAQ |
 
-## 发布契约（REGISTRY 驱动，2026-08-17 起）
+## 发布契约
 
 - 本节下表（「已分配编号」）是 publish.sh 构建/发布清单的**唯一机器来源**；新增或停用文档只改本表与源文件，不再手工维护 `stage3/publish.sh` 里的 manifest。
 - docx 输出名 = 源文件列 basename 的 `.md` 换成 `.docx`（REGISTRY.md 不生成/上传 docx，输出为 `NONE`；md 源不再单独上传，源码随 GitHub remote 与 git bundle 备份）。
@@ -58,12 +58,12 @@
 | 文档号 | 标题 | 层级 | 类型 | 域名 | 版本 | 关联标准 | 编制人 | 状态 | 源文件 | 目标目录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | SOP-GEN-2026-001 | 合规与标准定位 | — | reference | GEN | 1.0 | ISO 9001 / 27001 / 20000 | 待定 | Draft | sops/SOP-GEN-2026-001-合规与标准定位.md | 07-参考与说明 |
-| SOP-GEN-2026-002 | 表格排版规范（北极星原则） | L2 | standard | GEN | 1.0 | 通用（不绑定单一标准） | 段天俊 | Draft | sops/SOP-GEN-2026-002-表格排版规范.md | 06-GEN-通用 |
+| SOP-GEN-2026-002 | 表格排版规范 | L2 | standard | GEN | 1.1 | 通用（不绑定单一标准） | 段天俊 | Draft | sops/SOP-GEN-2026-002-表格排版规范.md | 06-GEN-通用 |
 | SOP-SEC-2026-001 | 安防平台人员变动信息处理标准作业程序书 | L3 | procedure | SEC | 1.1 | ISO/IEC 27001（人力资源安全 / offboarding） | 段天俊 | Draft | sops/SOP-SEC-2026-001.md | 01-SEC-信息安全 |
 | SOP-DESK-2026-001 | 员工电脑配给与收回标准作业程序书 | L3 | procedure | DESK | 1.4 | ISO/IEC 20000-1（人力资源安全 / 配给与收回） | 段天俊 | Draft | sops/SOP-DESK-2026-001.md | 03-DESK-桌面终端 |
 | REF-GEN-2026-001 | SOP与规范库 · 系统说明 | — | reference | GEN | 1.0 | — | 段天俊 | Draft | SOP-通用-系统说明.md | 07-参考与说明 |
 
-## 分配规则（操作纪律）
+## 分配规则
 - 新增时：取目标域名 + 当前年，查本表该「域名+年」最大序号 +1，不足 3 位前补零。
 - 例：下一个信息安全类（SEC）2026 年文档 = `SOP-SEC-2026-002`。
 - 年份跨年不沿用旧年序号：2027 年首条 = `SOP-SEC-2027-001`。
