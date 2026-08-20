@@ -34,8 +34,7 @@ C:\Users\11058\AppData\Local\Temp\sop-exports\	临时产物区：docx 预览迭�
 二、仓库结构
 sops/ — md 源文件 + REGISTRY.md（编号唯一权威，见 §三）
 output/sop-system-20260812/stage3/ — docx 生成工具链：
-sop_to_docx_stdlib.py <input.md> <output.docx>（纯 stdlib，主生成器）
-sop_to_docx.py（依赖版，功能同前）
+sop_to_docx_stdlib.py <input.md> <output.docx>（纯 stdlib，唯一生成器；依赖版已删除，历史见 git）
 check_docs.py（健康检查：front matter 完整性 + REGISTRY 发布契约一致性）
 registry_lib.py（REGISTRY 表解析与契约校验共享库）
 registry_manifest.py（从 REGISTRY 生成 publish.sh 发布清单）

@@ -344,7 +344,8 @@ def parse_md(md):
         fm_block = ""
 
     # 首页信息页独立成页（流派 B）：H1 标题后紧跟合并的文件信息表，
-    # 其后插分页符，正文（适用场景起）从第二页开始。
+    # 其后固定插分页符，正文（适用场景起）从第二页开始；不依赖源文档
+    # 是否包含「审批信息」节，避免 SEC/DESK 等文档分页行为不一致。
     approval_pending = False
 
     i, n = 0, len(lines)
@@ -365,12 +366,13 @@ def parse_md(md):
             body += para(st[2:].strip(), style="Heading1", ppr_extra=h1_ppr)
             if fm_block and not fm_rendered:
                 body += fm_block
+                body += ('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
                 fm_rendered = True
             i += 1
             continue
         if st.startswith("## "):
             if st[3:].strip() == "审批信息":
-                # 审批信息已并入文件信息表，跳过其标题（approval_pending 用于其表格后分页）
+                # 审批信息已并入文件信息表，跳过其标题；封面分页已由文件信息表统一处理
                 approval_pending = True
                 i += 1
                 continue
@@ -392,8 +394,7 @@ def parse_md(md):
                 all(set(c) <= set("-: ") for c in r))]
             if tbl:
                 if approval_pending:
-                    # 审批信息表内容已并入文件信息表，此处跳过渲染，仅分页
-                    body += ('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
+                    # 审批信息表内容已并入文件信息表，此处跳过渲染
                     approval_pending = False
                 else:
                     body += table(tbl, header=True)
