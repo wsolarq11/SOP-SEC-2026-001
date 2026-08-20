@@ -11,6 +11,7 @@
   python check_docs.py <dir>...   # 扫指定目录（每目录下所有 .md）
 """
 import os
+import re
 import subprocess
 import sys
 
@@ -101,6 +102,15 @@ def main():
                 print("[FAIL] %s: front matter 缺 %s" % (rel, missing))
         else:
             print("[SKIP] %s: 无 front matter（索引/说明类文档）" % rel)
+        # 1.1) procedure 正文标题括号校验：L3 程序类标题只写操作对象，
+        # 限定词放正文首句，避免各 SOP 命名风格不一致（2026-08-20 起）。
+        if has_fm and fm.get("doc_type") == "procedure":
+            for ln in text.split("\n"):
+                st = ln.strip()
+                if st.startswith("## ") and re.search(r"[（(]", st):
+                    issues += 1
+                    print("[FAIL] %s: procedure 标题含括号，请改为无括号表述: %s"
+                          % (rel, st))
         # 2) 与 git HEAD 对比（未提交的变更 = 可能是外部改写或未提交修改）
         r = subprocess.run(
             ["git", "-C", ROOT, "diff", "--quiet", "HEAD", "--", rel],
