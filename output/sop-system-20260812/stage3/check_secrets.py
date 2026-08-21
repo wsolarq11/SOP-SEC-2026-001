@@ -20,6 +20,11 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
 
+# Windows runner 默认 stdout 可能是 cp1252，中文报错会直接 UnicodeEncodeError。
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 SECRET_PATTERNS = [
     (r"\bghp_[A-Za-z0-9]{20,}\b", "GitHub PAT"),
     (r"\bgho_[A-Za-z0-9]{20,}\b", "GitHub OAuth token"),
