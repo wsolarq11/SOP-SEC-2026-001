@@ -3,10 +3,10 @@
 # 发布管线（Docs-as-Code 四步法：构建-校验-发布-报告）
 # git md 源 → 生成 docx → 同步 publish → 同名覆盖上传飞书（幂等）
 #
-# 发布契约：REGISTRY.md「已分配编号」表是清单唯一来源。
+# 发布契约：sops/registry.json「已分配编号」数据是清单唯一机器来源。
 #   - docx 输出名 = 源文件 basename 的 .md 换成 .docx
 #   - Retired 文档不进入清单
-#   - REGISTRY.md 不生成 docx（输出为 NONE），源码随仓库 bundle 备份
+#   - REGISTRY.md / registry.json 不生成 docx（输出为 NONE），源码随仓库 bundle 备份
 #   - 发布只上传 docx；md 不再单独上传
 #   - 每个 docx 条目必须提供 docx 上传 token，缺失即失败
 #
@@ -23,18 +23,22 @@ set -u
 export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
-ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -W)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd -W)"
 if [ -n "${PY:-}" ]; then
   :
 else
   PY="python"
 fi
-STAGE="$ROOT/output/sop-system-20260812/stage3"
-CONV="$STAGE/sop_to_docx_stdlib.py"
-CHECK="$STAGE/check_docs.py"
-SECRETS="$STAGE/check_secrets.py"
-MANIFEST_GEN="$STAGE/registry_manifest.py"
-PUB="${PUB:-C:/Users/11058/AppData/Local/Temp/sop-exports/publish}"
+TOOLS="$ROOT/tools"
+CONV="$TOOLS/sop_to_docx_stdlib.py"
+CHECK="$TOOLS/check_docs.py"
+SECRETS="$TOOLS/check_secrets.py"
+MANIFEST_GEN="$TOOLS/registry_manifest.py"
+LARK_JSON="$TOOLS/lark_json.py"
+if [ -z "${PUB:-}" ]; then
+  _TEMP="${TEMP:-${TMP:-/tmp}}"
+  PUB="${_TEMP//\\//}/sop-exports/publish"
+fi
 AS="${AS:-user}"
 
 DRY=0
@@ -47,14 +51,14 @@ echo "== [1/4] 健康检查 + 敏感信息扫描 =="
 "$PY" "$CHECK" "$ROOT/sops" || { echo "健康检查失败，中止"; exit 1; }
 "$PY" "$SECRETS" --all || { echo "敏感信息扫描失败，禁止发布"; exit 1; }
 
-echo "== [2/4] 从 REGISTRY 生成发布清单 =="
+echo "== [2/4] 从 registry.json 生成发布清单 =="
 MANIFEST=()
 while IFS= read -r line; do
   [ -z "$line" ] && continue
   MANIFEST+=("$line")
-done < <(PYTHONIOENCODING=utf-8 "$PY" "$MANIFEST_GEN" | tr -d "\r") || { echo "REGISTRY manifest 生成失败，中止"; exit 1; }
+done < <(PYTHONIOENCODING=utf-8 "$PY" "$MANIFEST_GEN" | tr -d "\r") || { echo "registry manifest 生成失败，中止"; exit 1; }
 if [ "${#MANIFEST[@]}" -eq 0 ]; then
-  echo "❌ REGISTRY 未生成任何发布条目，中止"
+  echo "❌ registry.json 未生成任何发布条目，中止"
   exit 1
 fi
 printf '  %s
@@ -139,18 +143,18 @@ for entry in "${MANIFEST[@]}"; do
   fi
   if [ "$docxname" != "NONE" ] && [ -n "${DOCTOK[$mdrel]:-}" ] && [ "${DOCTOK[$mdrel]}" != "NONE" ]; then
     UPLOAD_OUTPUT="$(lark-cli drive +upload --file "./$docxname" --file-token "${DOCTOK[$mdrel]}" --as "$AS" --format json 2>&1 || true)"
-    if grep -q '"ok": true' <<< "$UPLOAD_OUTPUT"; then
-      RETURNED_TOKEN="$(printf '%s\n' "$UPLOAD_OUTPUT" | sed -n 's/.*"file_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-      if [ -n "$RETURNED_TOKEN" ] && [ "$RETURNED_TOKEN" = "${DOCTOK[$mdrel]}" ]; then
+    if printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" ok; then
+      RETURNED_TOKEN="$(printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" token)" || RETURNED_TOKEN=""
+      if [ "$RETURNED_TOKEN" = "${DOCTOK[$mdrel]}" ]; then
         echo "  ✅ docx 上传: $docxname"
       else
         echo "  ❌ docx 上传后 file_token 不一致: $docxname"
-        printf '%s\n' "$UPLOAD_OUTPUT" | grep -Eo '"message": *"[^"]*"' | head -n 1
+        printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" message || true
         FAIL=$((FAIL+1))
       fi
     else
       echo "  ❌ docx 上传失败: $docxname"
-      printf '%s\n' "$UPLOAD_OUTPUT" | grep -Eo '"message": *"[^"]*"' | head -n 1
+      printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" message || true
       FAIL=$((FAIL+1))
     fi
   fi

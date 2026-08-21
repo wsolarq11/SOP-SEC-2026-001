@@ -5,7 +5,8 @@
 # post-commit / pre-push hook 在本地 commit / push 时调用：
 #   git bundle create --all HEAD  ->  %TEMP%\sop-exports\backup\*.bundle
 #   lark-cli drive +upload        ->  飞书云盘同名覆盖
-# GitHub 与飞书 bundle 为主副双备份，两者都必须成功；hook 失败会让 git 命令显式失败。
+# GitHub 与飞书 bundle 为主副双备份；默认 hard 模式两者都必须成功，hook 失败会让 git 命令显式失败。
+# KB_BACKUP_MODE=soft 时备份失败不阻断；KB_BACKUP_MODE=skip 时跳过备份（本地开发/临时故障用）。
 #
 # bundle 包含全部已提交历史与分支，可用 git clone <file> 恢复。
 # 不包含工作区未提交改动，也不包含 .publish-tokens（gitignore 忽略）。
@@ -26,12 +27,18 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
-ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -W)"
-PUB="${PUB:-C:/Users/11058/AppData/Local/Temp/sop-exports/publish}"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd -W)"
+PY="${PY:-python}"
+LARK_JSON="$SCRIPT_DIR/lark_json.py"
+if [ -z "${PUB:-}" ]; then
+  _TEMP="${TEMP:-${TMP:-/tmp}}"
+  PUB="${_TEMP//\\//}/sop-exports/publish"
+fi
 BACKUP_DIR="${BACKUP_DIR:-$(dirname "$PUB")/backup}"
 TOKEN_FILE="$ROOT/.publish-tokens"
 LOG="$ROOT/.git/backup-commit.log"
 NAME="${BACKUP_NAME:-$(basename "$ROOT").bundle}"
+BACKUP_MODE="${KB_BACKUP_MODE:-hard}"
 
 INSTALL=0
 UNINSTALL=0
@@ -64,10 +71,16 @@ say() {
 
 die() {
   say "错误: $*"
+  if [ "$BACKUP_MODE" = "soft" ]; then
+    return 1
+  fi
   exit 1
 }
 
-command -v lark-cli >/dev/null 2>&1 || die "未找到 lark-cli，请确认其已加入 PATH"
+soft_fail() {
+  say "仓库备份失败（KB_BACKUP_MODE=soft，不阻断）"
+  exit 0
+}
 
 if [ "$UNINSTALL" = 1 ]; then
   rm -f "$ROOT/.git/hooks/pre-commit" "$ROOT/.git/hooks/post-commit" "$ROOT/.git/hooks/pre-push"
@@ -84,28 +97,32 @@ if [ "$INSTALL" = 1 ]; then
       cat > "$HOOK" <<'HOOK_EOF'
 #!/bin/sh
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-python "$ROOT/output/sop-system-20260812/stage3/check_secrets.py" --staged
+python "$ROOT/tools/kb.py" secrets --staged
 HOOK_EOF
     elif [ "$HOOK_NAME" = "pre-push" ]; then
       cat > "$HOOK" <<'HOOK_EOF'
 #!/bin/sh
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-python "$ROOT/output/sop-system-20260812/stage3/check_secrets.py" --all
-bash "$ROOT/output/sop-system-20260812/stage3/check_git_auth.sh" --network
-bash "$ROOT/output/sop-system-20260812/stage3/backup_commit.sh"
+python "$ROOT/tools/kb.py" secrets --all
+python "$ROOT/tools/kb.py" auth --network
+python "$ROOT/tools/kb.py" backup
 HOOK_EOF
     else
       cat > "$HOOK" <<'HOOK_EOF'
 #!/bin/sh
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-bash "$ROOT/output/sop-system-20260812/stage3/check_git_auth.sh"
-bash "$ROOT/output/sop-system-20260812/stage3/backup_commit.sh"
+python "$ROOT/tools/kb.py" auth
+python "$ROOT/tools/kb.py" backup
 HOOK_EOF
     fi
     chmod +x "$HOOK"
     say "已安装 $HOOK_NAME hook: $HOOK"
   done
   exit 0
+fi
+
+if ! command -v lark-cli >/dev/null 2>&1; then
+  die "未找到 lark-cli，请确认其已加入 PATH" || { [ "$BACKUP_MODE" = "soft" ] || exit 1; }
 fi
 
 read_backup_token() {
@@ -173,11 +190,11 @@ build_bundle() {
   say "构建 bundle: $BUNDLE"
   if ! out="$(git bundle create "$BUNDLE" --all HEAD 2>&1)"; then
     say "$out"
-    die "git bundle 创建失败"
+    die "git bundle 创建失败" || return 1
   fi
   if ! out="$(git bundle verify "$BUNDLE" 2>&1)"; then
     say "$out"
-    die "git bundle 校验失败"
+    die "git bundle 校验失败" || return 1
   fi
   SIZE="$(du -h "$BUNDLE" | cut -f1)"
   say "bundle 校验通过，大小 $SIZE"
@@ -187,22 +204,22 @@ upload_bundle() {
   local token="$1" out
   say "上传 bundle 到飞书云盘（同名覆盖）"
   out="$(cd "$BACKUP_DIR" && lark-cli drive +upload --file "./$NAME" --file-token "$token" --as user --format json 2>&1)"
-  if ! printf '%s\n' "$out" | grep -q '"ok": true'; then
+  if ! printf '%s\n' "$out" | "$PY" "$LARK_JSON" ok; then
     say "lark-cli 输出:"
     say "$out"
-    die "飞书上传失败"
+    die "飞书上传失败" || return 1
   fi
-  returned="$(printf '%s\n' "$out" | sed -n 's/.*"file_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  returned="$(printf '%s\n' "$out" | "$PY" "$LARK_JSON" token)" || returned=""
   if [ -z "$returned" ] || [ "$returned" != "$token" ]; then
     say "lark-cli 输出:"
     say "$out"
-    die "上传返回 file_token 与登记不一致"
+    die "上传返回 file_token 与登记不一致" || return 1
   fi
 }
 
 run_init() {
   if [ -n "$FOLDER_TOKEN" ] && [ -n "$WIKI_TOKEN" ]; then
-    die "--folder-token 与 --wiki-token 不能同时使用"
+    die "--folder-token 与 --wiki-token 不能同时使用" || return 1
   fi
   read_backup_token
   if [ -z "$FOLDER_TOKEN" ] && [ -n "$SAVED_FOLDER_TOKEN" ]; then
@@ -213,11 +230,11 @@ run_init() {
   fi
   if [ -n "$TOKEN" ]; then
     say "BACKUP_BUNDLE token 已登记，按普通模式同名覆盖"
-    build_bundle
-    upload_bundle "$TOKEN"
+    build_bundle || return 1
+    upload_bundle "$TOKEN" || return 1
     return 0
   fi
-  build_bundle
+  build_bundle || return 1
   local out token
   say "首次上传 bundle 到飞书云盘并登记 token"
   if [ -n "$FOLDER_TOKEN" ]; then
@@ -227,27 +244,30 @@ run_init() {
   else
     out="$(cd "$BACKUP_DIR" && lark-cli drive +upload --file "./$NAME" --as user --format json 2>&1)"
   fi
-  if ! printf '%s\n' "$out" | grep -q '"ok": true'; then
+  if ! printf '%s\n' "$out" | "$PY" "$LARK_JSON" ok; then
     say "lark-cli 输出:"
     say "$out"
-    die "首次上传失败"
+    die "首次上传失败" || return 1
   fi
-  token="$(printf '%s\n' "$out" | sed -n 's/.*"file_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-  if [ -z "$token" ]; then
+  if ! token="$(printf '%s\n' "$out" | "$PY" "$LARK_JSON" token)"; then
     say "lark-cli 输出:"
     say "$out"
-    die "未能从上传结果解析 file_token"
+    die "未能从上传结果解析 file_token" || return 1
   fi
   save_backup_token "$token" "$FOLDER_TOKEN" "$WIKI_TOKEN"
   TOKEN="$token"
   say "已登记 BACKUP_BUNDLE token"
-  upload_bundle "$TOKEN"
+  upload_bundle "$TOKEN" || return 1
 }
 
 read_backup_token
 
 if [ "$DRY" = 1 ]; then
-  build_bundle
+  if [ "$BACKUP_MODE" = "skip" ]; then
+    say "KB_BACKUP_MODE=skip：跳过 dry-run 备份构建"
+    exit 0
+  fi
+  build_bundle || soft_fail
   if [ -n "$TOKEN" ]; then
     say "dry-run：将同名覆盖飞书云盘节点（token 已登记）"
   else
@@ -256,14 +276,19 @@ if [ "$DRY" = 1 ]; then
   exit 0
 fi
 
+if [ "$BACKUP_MODE" = "skip" ] && [ "$INIT" = 0 ]; then
+  say "KB_BACKUP_MODE=skip：跳过仓库备份"
+  exit 0
+fi
+
 if [ "$INIT" = 1 ]; then
-  run_init
+  run_init || soft_fail
 else
   if [ -z "$TOKEN" ]; then
-    die "未找到 BACKUP_BUNDLE token；请先运行 bash output/sop-system-20260812/stage3/backup_commit.sh --init"
+    die "未找到 BACKUP_BUNDLE token；请先运行 bash tools/backup_commit.sh --init" || soft_fail
   fi
-  build_bundle
-  upload_bundle "$TOKEN"
+  build_bundle || soft_fail
+  upload_bundle "$TOKEN" || soft_fail
 fi
 
 HEAD="$(git rev-parse --short HEAD)"

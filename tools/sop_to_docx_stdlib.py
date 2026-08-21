@@ -21,6 +21,12 @@ import sys
 import zipfile
 import datetime
 
+from registry_lib import parse_fm
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # 字体与颜色（对齐中文正式文档规范 + Few/微软颜色建议）
 FONT_EA = "宋体"                  # 正文字体（中文正式文档规范）
 FONT_LATIN = "Times New Roman"    # 正文西文/数字（中文文档惯例）
@@ -276,18 +282,14 @@ def table(rows, header=True):
 
 def parse_md(md):
     lines = md.split("\n")
-    fm = {}
-    if lines and lines[0].strip() == "---":
+    fm = parse_fm(md)
+    if fm:
         end = None
         for i in range(1, len(lines)):
             if lines[i].strip() == "---":
                 end = i
                 break
         if end is not None:
-            for l in lines[1:end]:
-                if ":" in l:
-                    k, v = l.split(":", 1)
-                    fm[k.strip()] = v.strip()
             lines = lines[end + 1:]
     # 完整性校验：front matter 必备字段缺失 → 警告（防止外部进程静默破坏源文件）
     # 历史教训：2026-08-14 规文被外部改写只剩 title，导致文档信息表丢失。
@@ -587,6 +589,8 @@ STYLES = (
     '</w:tblBorders></w:tblPr></w:style>'
     '</w:styles>')
 
+now_iso = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 CORE = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
     '<cp:coreProperties '
@@ -598,8 +602,7 @@ CORE = (
     '<cp:lastModifiedBy>KB</cp:lastModifiedBy>'
     '<dcterms:created xsi:type="dcterms:W3CDTF">%s</dcterms:created>'
     '<dcterms:modified xsi:type="dcterms:W3CDTF">%s</dcterms:modified>'
-    '</cp:coreProperties>') % (datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                               datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+    '</cp:coreProperties>') % (now_iso, now_iso)
 
 APP = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'

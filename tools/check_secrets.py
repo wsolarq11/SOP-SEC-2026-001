@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
+ROOT = os.path.dirname(SCRIPT_DIR)
 
 # Windows runner 默认 stdout 可能是 cp1252，中文报错会直接 UnicodeEncodeError。
 if hasattr(sys.stdout, "reconfigure"):
@@ -49,7 +49,7 @@ SENSITIVE_FILENAME_RE = re.compile(r"\.(pem|key|p12|pfx)$", re.IGNORECASE)
 
 # 文档/脚本里允许出现模式名，但不应出现真实 token。
 EXCLUDE_PATH_RE = re.compile(
-    r"(^|/)(\.git/|output/sop-system-20260812/stage3/check_secrets\.py$)",
+    r"(^|/)(\.git/|tools/check_secrets\.py$)",
     re.IGNORECASE,
 )
 

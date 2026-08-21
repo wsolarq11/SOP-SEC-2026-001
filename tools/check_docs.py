@@ -1,7 +1,7 @@
 """check_docs.py - SOP 源文件健康检查
 
 校验全部 md 源（sops/*.md + 根目录 SOP-通用-系统说明.md）的 front matter
-完整性、REGISTRY 发布契约一致性，并检测文件是否被外部进程静默改写（对比 git HEAD）。
+完整性、registry.json 发布契约一致性，并检测文件是否被外部进程静默改写（对比 git HEAD）。
 
 背景：2026-08-14 规文源文件曾被外部进程改写（front matter 丢字段 +
 表格被格式化），生成 docx 时才发现。此脚本用于定期/手动巡检。
@@ -15,8 +15,16 @@ import re
 import subprocess
 import sys
 
+# Windows runner/console 默认可能用 cp1252，中文检查结果会直接变成乱码。
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from registry_lib import (
+    REGISTRY_JSON_REL,
+    REGISTRY_REL,
     ROOT,
+    parse_fm,
     parse_registry,
     validate_registry_entries,
 )
@@ -27,19 +35,6 @@ REQUIRED = ["document_id", "title", "category", "doc_type",
 
 # 根目录（非 sops/）里同样纳入巡检的 md 源文件（相对仓库根）
 ROOT_EXTRAS = ["SOP-通用-系统说明.md"]
-
-
-def parse_fm(text):
-    fm = {}
-    lines = text.split("\n")
-    if lines and lines[0].strip() == "---":
-        for i in range(1, len(lines)):
-            if lines[i].strip() == "---":
-                break
-            if ":" in lines[i]:
-                k, v = lines[i].split(":", 1)
-                fm[k.strip()] = v.strip()
-    return fm
 
 
 def collect_md(dirs):
@@ -66,6 +61,16 @@ def validate_registry_contract(files):
     reg_issues, registered_sources = validate_registry_entries(entries, errors)
     issues += reg_issues
 
+    if os.path.isfile(os.path.join(ROOT, REGISTRY_JSON_REL)):
+        import registry_render
+
+        table = registry_render.render_table(entries)
+        with open(os.path.join(ROOT, REGISTRY_REL), encoding="utf-8") as f:
+            md = f.read()
+        if table not in md:
+            issues += 1
+            print("[FAIL] REGISTRY.md 与 sops/registry.json 不一致，请运行 python tools/kb.py registry-render --write")
+
     unregistered = []
     for abspath in sorted(set(files)):
         rel = os.path.relpath(abspath, ROOT).replace(os.sep, "/")
@@ -80,7 +85,7 @@ def validate_registry_contract(files):
             unregistered.append(rel)
     for rel in unregistered:
         issues += 1
-        print("[FAIL] %s: 未在 REGISTRY「已分配编号」登记" % rel)
+        print("[FAIL] %s: 未在 sops/registry.json 登记" % rel)
     return issues
 
 
@@ -121,7 +126,7 @@ def main():
     issues += validate_registry_contract(files)
     total = len(files)
     if issues == 0:
-        print("OK: 全部 %d 个文档 front matter 完整，REGISTRY 契约一致" % total)
+        print("OK: 全部 %d 个文档 front matter 完整，registry.json 契约一致" % total)
     else:
         print("发现 %d 个问题" % issues)
         sys.exit(1)

@@ -55,11 +55,11 @@ effective_date: 待定
 - 关联资料
 
 ## 四、如何新增 / 更新
-- 新增：把碎片知识发给我（口述、粘贴文本、或丢文件），我整理成模板、分配文档号并登记 REGISTRY，确认后写入本库（git 提交）；发布见“五、如何导出文档”。
-- 更新：说“更新 XX SOP”，我拉取现有内容修改，版本号 +1，同步 REGISTRY 后提交 git，再按“五、如何导出文档”发布。
+- 新增：把碎片知识发给我（口述、粘贴文本、或丢文件），我整理成模板、分配文档号并登记 registry.json，确认后写入本库（git 提交）；发布见“五、如何导出文档”。
+- 更新：说“更新 XX SOP”，我拉取现有内容修改，版本号 +1，同步 registry.json 后提交 git，再按“五、如何导出文档”发布。
 
 ## 五、如何导出文档
-对我说“把 XX SOP 导出成文档”，或运行 `bash output/sop-system-20260812/stage3/publish.sh --dry-run`。发布管线从 git 源重新生成 docx 到 `%TEMP%\sop-exports\publish\`，再以成品 docx + 源文件 md 两个飞书节点同名覆盖上传；md 不入 IMA，docx 不入 git。
+对我说“把 XX SOP 导出成文档”，或运行 `python tools/kb.py publish --dry-run`。发布管线从 git 源重新生成 docx 到 `%TEMP%\sop-exports\publish\`，再以成品 docx + 源文件 md 两个飞书节点同名覆盖上传；md 不入 IMA，docx 不入 git。
 
 ## 六、维护记录
 | 版本 | 日期 | 说明 |

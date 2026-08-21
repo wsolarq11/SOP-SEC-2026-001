@@ -11,7 +11,7 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
-ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -W)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd -W)"
 SCRIPT="$SCRIPT_DIR/check_git_auth.sh"
 TMP="$(mktemp -d)"
 HOME_TMP="$TMP/home"

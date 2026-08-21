@@ -19,7 +19,7 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
-ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -W)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd -W)"
 GH_HOST="github.com"
 FIX=0
 NETWORK=0

@@ -1,0 +1,23 @@
+name: Toolchain Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run toolchain regression tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Run tests
+        run: python tools/kb.py test
