@@ -80,11 +80,21 @@ if [ "$INSTALL" = 1 ]; then
   mkdir -p "$HOOKS_DIR"
   for HOOK_NAME in post-commit pre-push; do
     HOOK="$HOOKS_DIR/$HOOK_NAME"
-    cat > "$HOOK" <<'HOOK_EOF'
+    if [ "$HOOK_NAME" = "pre-push" ]; then
+      cat > "$HOOK" <<'HOOK_EOF'
 #!/bin/sh
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+bash "$ROOT/output/sop-system-20260812/stage3/check_git_auth.sh" --network
 bash "$ROOT/output/sop-system-20260812/stage3/backup_commit.sh"
 HOOK_EOF
+    else
+      cat > "$HOOK" <<'HOOK_EOF'
+#!/bin/sh
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+bash "$ROOT/output/sop-system-20260812/stage3/check_git_auth.sh"
+bash "$ROOT/output/sop-system-20260812/stage3/backup_commit.sh"
+HOOK_EOF
+    fi
     chmod +x "$HOOK"
     say "已安装 $HOOK_NAME hook: $HOOK"
   done

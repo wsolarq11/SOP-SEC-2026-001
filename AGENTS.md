@@ -23,7 +23,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 
 AGENTS.md — SOP 知识库工作区指南
-本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-18（GitHub Actions 校验、构建、bot 上传飞书全链路通过）。
+本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-21（GitHub Actions 校验、构建、bot 上传飞书全链路通过；GitHub 旧凭据层清理与 pre-push 守卫实测通过）。
 
 一、仓库定位：源 vs 临时区
 位置	角色	git
@@ -40,6 +40,8 @@ registry_lib.py（REGISTRY 表解析与契约校验共享库）
 registry_manifest.py（从 REGISTRY 生成 publish.sh 发布清单）
 docx_template.b64（docx 模板）
 publish.sh（发布管线：构建-校验-发布-报告，--dry-run；清单由 REGISTRY 自动生成，上传 token 见 .publish-tokens，不入库）
+check_git_auth.sh（GitHub 推送前凭据守卫：检测 remote 内嵌 token、github insteadOf、github extraheader、credential.helper store / ~/.git-credentials、gh 登录态；pre-push 时还会 git ls-remote 实测；支持 --fix）
+test_check_git_auth.sh（凭据守卫回归测试：临时 HOME/config 注入 insteadOf、extraheader、~/.git-credentials，确认拦截且干净状态放行）
 backup_commit.sh（git 仓库备份：post-commit/pre-push hook 生成完整 git bundle 并同名覆盖上传飞书；GitHub 与飞书 bundle 均须成功，hook 失败会让 git 命令显式失败；支持 --install/--init/--dry-run）
 cleanup_90_md.py（90 目录清理：列出并删除散装 md，先 --dry-run 审计，再 --yes 执行）
 .gitignore 关键规则：
@@ -55,7 +57,7 @@ IMS 层级：L1 方针 / L2 跨部门程序 / L3 作业指导书+记录
 发布契约（2026-08-17 起）：publish.sh 的构建/发布清单由 REGISTRY「已分配编号」表自动生成，不再维护脚本内 manifest；docx 输出名 = 源文件 basename 的 .md 换成 .docx，Retired 不发布，缺 token 即失败
 md front matter schema（新格式，faa3c44 起连坐升级；2026-08-18 收敛）：必填 document_id / title / category / doc_type / version / status / author / approver；可选 effective_date（生效日期，ISO 9001:2015 7.5.2 a 日期要素）；已废弃勿再用：doc_number / domain / owner / level / review_due / last_reviewed / related_standards（层级与关联标准以 REGISTRY「层级」「关联标准」列为唯一权威）
 四、知识库承载模式（2026-08-14 起 = 文件挂载）
-每文档一个飞书节点：·成品（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走同名覆盖（file token 不变，节点不失效）。上传 token 见仓库根 .publish-tokens（gitignore 忽略，不入库）；8/13 曾使用临时区 *_create.json 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：https://github.com/wsolarq11/SOP-SEC-2026-001.git（私有，master）；.github/workflows/publish.yml 在 push 后自动跑 check_docs.py + docx 构建，并还原 PUBLISH_TOKENS_B64 secret；LARK_APP_ID/LARK_APP_SECRET 已配置为 GitHub secrets，CI 以 bot 身份自动上传；应用 cli_aaf1518a8c789bd5 已对现有 docx 成品文件获得 full_access 协作者权限。仓库备份登记 BACKUP_BUNDLE|<bundle file_token>|NONE、BACKUP_FOLDER|<90 目录 folder_token>|NONE、BACKUP_WIKI|<90 目录 wiki node_token>|NONE，由 backup_commit.sh 读写。GitHub 与飞书 bundle 为主副双备份，两者都必须成功；post-commit/pre-push hook 失败会让 git commit/push 显式失败。
+每文档一个飞书节点：·成品（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走同名覆盖（file token 不变，节点不失效）。上传 token 见仓库根 .publish-tokens（gitignore 忽略，不入库）；8/13 曾使用临时区 *_create.json 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：https://github.com/wsolarq11/SOP-SEC-2026-001.git（私有，master）；.github/workflows/publish.yml 在 push 后自动跑 check_docs.py + docx 构建，并还原 PUBLISH_TOKENS_B64 secret；LARK_APP_ID/LARK_APP_SECRET 已配置为 GitHub secrets，CI 以 bot 身份自动上传；应用 cli_aaf1518a8c789bd5 已对现有 docx 成品文件获得 full_access 协作者权限。仓库备份登记 BACKUP_BUNDLE|<bundle file_token>|NONE、BACKUP_FOLDER|<90 目录 folder_token>|NONE、BACKUP_WIKI|<90 目录 wiki node_token>|NONE，由 backup_commit.sh 读写。GitHub 与飞书 bundle 为主副双备份，两者都必须成功；post-commit/pre-push hook 失败会让 git commit/push 显式失败。GitHub 本机凭据统一走 `gh auth login`，禁止把 token 写进 remote URL、`.git/config`、`~/.git-credentials` 或 `credential.helper store`；`backup_commit.sh --install` 会自动安装 `check_git_auth.sh` 守卫，pre-push 先做网络实测再上传 bundle。
 
 五、%TEMP%\sop-exports 的真相与纪律
 为什么放 %TEMP%：本机文件监视器会把写进工作区/个人目录的 .docx 替换成损坏桩（.gitignore 注释为据；实测工作区及上级目录零 docx，docx 只存在于 %TEMP%）。docx 生成与发布文件全放这里，用完即弃
@@ -72,7 +74,7 @@ backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次�
 跑 check_docs.py 健康检查（front matter 完整性 + REGISTRY 契约一致性）
 构建验证：bash output/sop-system-20260812/stage3/publish.sh --dry-run，输出到 %TEMP%\sop-exports\publish\（docx 不入库）
 git 提交 md 源与生成器改动（docx 一律不入库；post-commit hook 必须完成飞书 bundle 上传，失败时 git commit 显式报错）
-git push origin master：pre-push hook 先强制飞书 bundle 上传成功再推送 GitHub；GitHub Actions 随后自动跑健康检查、docx 构建，并以 bot 身份自动上传飞书
+git push origin master：pre-push hook 先跑 `check_git_auth.sh --network` 清旧凭据并实测 remote，再强制飞书 bundle 上传成功，最后推送 GitHub；GitHub Actions 随后自动跑健康检查、docx 构建，并以 bot 身份自动上传飞书
 本地上传飞书兜底：bash output/sop-system-20260812/stage3/publish.sh（仅成品 docx 同名覆盖对应节点；md 不再单独上传）
 一次性清理 90 目录旧 md：python output/sop-system-20260812/stage3/cleanup_90_md.py --dry-run 审计后，再 --yes 执行删除
 八、禁忌
@@ -81,5 +83,6 @@ git push origin master：pre-push hook 先强制飞书 bundle 上传成功再推
 禁止绕过 REGISTRY 分配编号
 禁止把 .bundle 或备份日志放进工作区（bundle 写到 %TEMP%\sop-exports\backup，日志在 .git\backup-commit.log）
 禁止把 GitHub token、Feishu appSecret、.publish-tokens 写进仓库文件；CI 凭据只放 GitHub secrets，本机凭据只放仓库外受控文件
+禁止把 GitHub token 写进 remote URL、`.git/config` 的 `url.*.insteadOf` 或 `http.https://github.com/.extraheader`、`~/.git-credentials` 和 `credential.helper store`；GitHub 推送前必须通过 `check_git_auth.sh --network`
 90 目录旧 md 只能通过 cleanup_90_md.py 的 --yes 删除；执行前必须先 --dry-run 看清单
 生成器排版基准（103c977）：正文宋体+Times New Roman+深灰 3F3F3F，标题黑体去蓝——改生成器时不得破坏

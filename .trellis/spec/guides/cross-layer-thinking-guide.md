@@ -325,3 +325,42 @@ state correctly, but several commands still re-parsed event payload fields with
 local casts. The fix was to make the core event layer own `ThreadChannelEvent`
 and `isThreadEvent`, make `reduceChannelMetadata` the only channel metadata
 projection, and make `reduceThreads` the only thread replay reducer.
+
+---
+
+## Git Credential Layer Audit
+
+GitHub HTTPS auth failures often look like one stale token, but the token can
+live in several independent layers. A clean `git remote -v` does not mean auth
+is clean.
+
+Credential-bearing layers to audit:
+
+- `url.*.insteadOf` in global config can rewrite a clean remote URL back into a
+  URL with an embedded token.
+- `http.https://github.com/.extraheader` in repo or global config sends a stale
+  `AUTHORIZATION` header before the credential helper runs.
+- `credential.helper store` persists `~/.git-credentials`; that file can keep
+  an old token even after `gh auth login` succeeds.
+- `gh` keyring can be logged in while Git still resolves a stale helper first.
+- Remote URL itself may contain `https://user:token@...`.
+
+### Checklist: Before Any GitHub Push
+
+- [ ] `gh auth status --hostname github.com` succeeds
+- [ ] `git remote -v` contains no `user:token@`
+- [ ] `git config --get-regexp '^url\..*@github\.com/'` returns nothing
+- [ ] `git config --get-regexp '^http\..*github\.com/\.extraheader'` returns nothing
+- [ ] `credential.helper store` is not enabled and `~/.git-credentials` has no
+      GitHub entry
+- [ ] `printf 'protocol=https\nhost=github.com\n\n' | gh auth git-credential get`
+      returns username and password
+- [ ] Run `git ls-remote <remote> HEAD` as a real network check, not just a
+      config check
+
+**Real-world example**: A push failed with `Invalid username or token` even
+after `gh auth login` succeeded. The real layers were a global
+`url.*.insteadOf` rewrite embedding an old PAT, a repo-local
+`http.https://github.com/.extraheader`, and `~/.git-credentials` plus
+`credential.helper store`. All three had to be removed before the gh token
+could be used. The fix is enforced by `output/sop-system-20260812/stage3/check_git_auth.sh` and installed by `backup_commit.sh --install`.
