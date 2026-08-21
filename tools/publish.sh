@@ -145,6 +145,7 @@ for entry in "${MANIFEST[@]}"; do
     UPLOAD_OUTPUT="$(lark-cli drive +upload --file "./$docxname" --file-token "${DOCTOK[$mdrel]}" --as "$AS" --format json 2>&1 || true)"
     if printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" ok; then
       RETURNED_TOKEN="$(printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" token)" || RETURNED_TOKEN=""
+      RETURNED_TOKEN="${RETURNED_TOKEN%$'\r'}"
       if [ "$RETURNED_TOKEN" = "${DOCTOK[$mdrel]}" ]; then
         echo "  ✅ docx 上传: $docxname"
       else

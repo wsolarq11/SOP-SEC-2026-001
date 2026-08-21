@@ -127,6 +127,21 @@ approver: Tester
             encoding="utf-8",
         )
         self.assertEqual(token.stdout.strip(), "abc")
+        nested = subprocess.run(
+            [sys.executable, helper, "token"],
+            input='{"ok": true, "data": {"file_token": "abc"}}',
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        self.assertEqual(nested.stdout.strip(), "abc")
+        raw = subprocess.run(
+            [sys.executable, helper, "token"],
+            input=b'{"ok": true, "data": {"file_token": "abc"}}',
+            capture_output=True,
+        )
+        self.assertNotIn(b"\r", raw.stdout)
+        self.assertEqual(raw.stdout.strip(), b"abc")
         bad = subprocess.run(
             [sys.executable, helper, "ok"],
             input='{"ok": false, "message": "denied"}',

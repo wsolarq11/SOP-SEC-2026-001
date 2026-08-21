@@ -210,6 +210,7 @@ upload_bundle() {
     die "飞书上传失败" || return 1
   fi
   returned="$(printf '%s\n' "$out" | "$PY" "$LARK_JSON" token)" || returned=""
+  returned="${returned%$'\r'}"
   if [ -z "$returned" ] || [ "$returned" != "$token" ]; then
     say "lark-cli 输出:"
     say "$out"
@@ -254,6 +255,7 @@ run_init() {
     say "$out"
     die "未能从上传结果解析 file_token" || return 1
   fi
+  token="${token%$'\r'}"
   save_backup_token "$token" "$FOLDER_TOKEN" "$WIKI_TOKEN"
   TOKEN="$token"
   say "已登记 BACKUP_BUNDLE token"

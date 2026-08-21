@@ -9,6 +9,10 @@ keeps the JSON contract in one tested place:
 import json
 import sys
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace", newline="\n")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace", newline="\n")
+
 
 def parse_json(text):
     start = text.find("{")
@@ -22,12 +26,23 @@ def is_ok(data):
     return value is True or str(value).lower() == "true"
 
 
+def file_token(data):
+    token = data.get("file_token")
+    if token:
+        return token
+    nested = data.get("data")
+    if isinstance(nested, dict):
+        return nested.get("file_token")
+    return None
+
+
 def message_text(data):
-    msg = data.get("message")
-    if isinstance(msg, str):
-        return msg
-    if msg is not None:
-        return json.dumps(msg, ensure_ascii=False)
+    for source in (data, data.get("data") if isinstance(data.get("data"), dict) else {}):
+        msg = source.get("message")
+        if msg:
+            if isinstance(msg, str):
+                return msg
+            return json.dumps(msg, ensure_ascii=False)
     return ""
 
 
@@ -46,7 +61,7 @@ def main():
     if field == "ok":
         return 0 if is_ok(data) else 1
     if field == "token":
-        token = data.get("file_token")
+        token = file_token(data)
         if is_ok(data) and token:
             print(token)
             return 0
