@@ -37,6 +37,7 @@ These guides help you **ask the right questions before coding**.
 - [ ] You are adding an event kind, JSONL record, RPC payload, or config field
 - [ ] UI / command code starts casting raw payload fields directly
 - [ ] A GitHub push fails with auth errors after credentials were rotated or re-logged-in
+- [ ] Token, password, private key, or credential file might be committed to git
 
 → Read [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md)
 

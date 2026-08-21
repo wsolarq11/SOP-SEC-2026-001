@@ -78,6 +78,16 @@ setup_gh_git_credentials() {
   gh auth setup-git >/dev/null 2>&1 || true
 }
 
+harden_publish_tokens_acl() {
+  local p="$ROOT/.publish-tokens" who
+  [ -f "$p" ] || return 0
+  if command -v icacls >/dev/null 2>&1; then
+    who="$(whoami)"
+    icacls "$p" /inheritance:r /grant:r "${who}:(M)" 'BUILTIN\Administrators:(F)' 'NT AUTHORITY\SYSTEM:(F)' >/dev/null 2>&1 \
+      || echo "提示: .publish-tokens ACL 收紧失败，需管理员处理"
+  fi
+}
+
 check_gh_login() {
   gh auth status --hostname "$GH_HOST" >/dev/null 2>&1 || fail "gh 未登录 $GH_HOST，请运行 gh auth login"
 }
@@ -115,6 +125,13 @@ check_no_store_credentials() {
   fi
 }
 
+check_token_file_not_tracked() {
+  if [ -f "$ROOT/.publish-tokens" ] \
+    && git -C "$ROOT" ls-files --error-unmatch -- .publish-tokens >/dev/null 2>&1; then
+    fail ".publish-tokens 已被 git 跟踪，禁止提交"
+  fi
+}
+
 check_gh_credential_works() {
   local out
   out="$(printf 'protocol=https\nhost=github.com\n\n' | gh auth git-credential get 2>&1 || true)"
@@ -135,6 +152,7 @@ if [ "$FIX" = 1 ]; then
   remove_github_extraheader
   remove_store_helper_and_file
   setup_gh_git_credentials
+  harden_publish_tokens_acl
   # remote 内嵌 token 也在修复范围
   git config remote.origin.url "$(clean_remote_url)" 2>/dev/null || true
 fi
@@ -144,6 +162,7 @@ check_no_embedded_remote_token
 check_no_github_insteadof
 check_no_github_extraheader
 check_no_store_credentials
+check_token_file_not_tracked
 check_gh_credential_works
 
 if [ "$NETWORK" = 1 ]; then

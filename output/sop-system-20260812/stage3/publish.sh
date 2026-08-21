@@ -32,6 +32,7 @@ fi
 STAGE="$ROOT/output/sop-system-20260812/stage3"
 CONV="$STAGE/sop_to_docx_stdlib.py"
 CHECK="$STAGE/check_docs.py"
+SECRETS="$STAGE/check_secrets.py"
 MANIFEST_GEN="$STAGE/registry_manifest.py"
 PUB="${PUB:-C:/Users/11058/AppData/Local/Temp/sop-exports/publish}"
 AS="${AS:-user}"
@@ -42,8 +43,9 @@ TARGET="${1:-ALL}"
 
 mkdir -p "$PUB"
 
-echo "== [1/4] 健康检查（check_docs + REGISTRY 契约）=="
+echo "== [1/4] 健康检查 + 敏感信息扫描 =="
 "$PY" "$CHECK" "$ROOT/sops" || { echo "健康检查失败，中止"; exit 1; }
+"$PY" "$SECRETS" --all || { echo "敏感信息扫描失败，禁止发布"; exit 1; }
 
 echo "== [2/4] 从 REGISTRY 生成发布清单 =="
 MANIFEST=()

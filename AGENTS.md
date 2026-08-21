@@ -42,7 +42,9 @@ docx_template.b64（docx 模板）
 publish.sh（发布管线：构建-校验-发布-报告，--dry-run；清单由 REGISTRY 自动生成，上传 token 见 .publish-tokens，不入库）
 check_git_auth.sh（GitHub 推送前凭据守卫：检测 remote 内嵌 token、github insteadOf、github extraheader、credential.helper store / ~/.git-credentials、gh 登录态；pre-push 时还会 git ls-remote 实测；支持 --fix）
 test_check_git_auth.sh（凭据守卫回归测试：临时 HOME/config 注入 insteadOf、extraheader、~/.git-credentials，确认拦截且干净状态放行）
-backup_commit.sh（git 仓库备份：post-commit/pre-push hook 生成完整 git bundle 并同名覆盖上传飞书；GitHub 与飞书 bundle 均须成功，hook 失败会让 git 命令显式失败；支持 --install/--init/--dry-run）
+check_secrets.py（敏感信息扫描：扫 git 已跟踪文件/staged 内容中的 GitHub/Slack/AWS token、私钥、密码赋值等；pre-commit/pre-push/publish.sh/CI 统一入口）
+test_check_secrets.py（敏感扫描回归测试：staged 注入运行时拼接的假 token 必须被拦截，清理后全量扫描必须放行）
+backup_commit.sh（git 仓库备份：pre-commit 先扫描敏感信息，post-commit/pre-push hook 生成完整 git bundle 并同名覆盖上传飞书；GitHub 与飞书 bundle 均须成功，hook 失败会让 git 命令显式失败；支持 --install/--init/--dry-run）
 cleanup_90_md.py（90 目录清理：列出并删除散装 md，先 --dry-run 审计，再 --yes 执行）
 .gitignore 关键规则：
 *.docx 绝不入库——本机有文件监视器会损坏 .docx，这是初始化提交就写明的纪律
@@ -73,8 +75,8 @@ backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次�
 编辑/新建 md 源（放 sops/；系统说明类归 07-参考与说明），同步登记 REGISTRY.md（编号、类型、层级、域名、目标目录；发布清单会自动包含该条目）
 跑 check_docs.py 健康检查（front matter 完整性 + REGISTRY 契约一致性）
 构建验证：bash output/sop-system-20260812/stage3/publish.sh --dry-run，输出到 %TEMP%\sop-exports\publish\（docx 不入库）
-git 提交 md 源与生成器改动（docx 一律不入库；post-commit hook 必须完成飞书 bundle 上传，失败时 git commit 显式报错）
-git push origin master：pre-push hook 先跑 `check_git_auth.sh --network` 清旧凭据并实测 remote，再强制飞书 bundle 上传成功，最后推送 GitHub；GitHub Actions 随后自动跑健康检查、docx 构建，并以 bot 身份自动上传飞书
+git 提交 md 源与生成器改动（docx 一律不入库；pre-commit 先跑 `check_secrets.py --staged`，post-commit hook 必须完成飞书 bundle 上传，失败时 git commit 显式报错）
+git push origin master：pre-push hook 先跑 `check_secrets.py --all`，再跑 `check_git_auth.sh --network` 清旧凭据并实测 remote，再强制飞书 bundle 上传成功，最后推送 GitHub；GitHub Actions 随后自动跑敏感扫描、健康检查、docx 构建，并以 bot 身份自动上传飞书
 本地上传飞书兜底：bash output/sop-system-20260812/stage3/publish.sh（仅成品 docx 同名覆盖对应节点；md 不再单独上传）
 一次性清理 90 目录旧 md：python output/sop-system-20260812/stage3/cleanup_90_md.py --dry-run 审计后，再 --yes 执行删除
 八、禁忌
@@ -84,5 +86,6 @@ git push origin master：pre-push hook 先跑 `check_git_auth.sh --network` 清�
 禁止把 .bundle 或备份日志放进工作区（bundle 写到 %TEMP%\sop-exports\backup，日志在 .git\backup-commit.log）
 禁止把 GitHub token、Feishu appSecret、.publish-tokens 写进仓库文件；CI 凭据只放 GitHub secrets，本机凭据只放仓库外受控文件
 禁止把 GitHub token 写进 remote URL、`.git/config` 的 `url.*.insteadOf` 或 `http.https://github.com/.extraheader`、`~/.git-credentials` 和 `credential.helper store`；GitHub 推送前必须通过 `check_git_auth.sh --network`
+禁止把真实 token、密码、私钥写进任何 git 提交；提交前必须通过 `check_secrets.py --staged`，发布前必须通过 `check_secrets.py --all`；CI 同样执行该扫描
 90 目录旧 md 只能通过 cleanup_90_md.py 的 --yes 删除；执行前必须先 --dry-run 看清单
 生成器排版基准（103c977）：正文宋体+Times New Roman+深灰 3F3F3F，标题黑体去蓝——改生成器时不得破坏

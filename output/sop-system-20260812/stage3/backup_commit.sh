@@ -70,20 +70,27 @@ die() {
 command -v lark-cli >/dev/null 2>&1 || die "未找到 lark-cli，请确认其已加入 PATH"
 
 if [ "$UNINSTALL" = 1 ]; then
-  rm -f "$ROOT/.git/hooks/post-commit" "$ROOT/.git/hooks/pre-push"
-  say "已移除 post-commit / pre-push hook"
+  rm -f "$ROOT/.git/hooks/pre-commit" "$ROOT/.git/hooks/post-commit" "$ROOT/.git/hooks/pre-push"
+  say "已移除 pre-commit / post-commit / pre-push hook"
   exit 0
 fi
 
 if [ "$INSTALL" = 1 ]; then
   HOOKS_DIR="$ROOT/.git/hooks"
   mkdir -p "$HOOKS_DIR"
-  for HOOK_NAME in post-commit pre-push; do
+  for HOOK_NAME in pre-commit post-commit pre-push; do
     HOOK="$HOOKS_DIR/$HOOK_NAME"
-    if [ "$HOOK_NAME" = "pre-push" ]; then
+    if [ "$HOOK_NAME" = "pre-commit" ]; then
       cat > "$HOOK" <<'HOOK_EOF'
 #!/bin/sh
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+python "$ROOT/output/sop-system-20260812/stage3/check_secrets.py" --staged
+HOOK_EOF
+    elif [ "$HOOK_NAME" = "pre-push" ]; then
+      cat > "$HOOK" <<'HOOK_EOF'
+#!/bin/sh
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+python "$ROOT/output/sop-system-20260812/stage3/check_secrets.py" --all
 bash "$ROOT/output/sop-system-20260812/stage3/check_git_auth.sh" --network
 bash "$ROOT/output/sop-system-20260812/stage3/backup_commit.sh"
 HOOK_EOF

@@ -364,3 +364,31 @@ after `gh auth login` succeeded. The real layers were a global
 `http.https://github.com/.extraheader`, and `~/.git-credentials` plus
 `credential.helper store`. All three had to be removed before the gh token
 could be used. The fix is enforced by `output/sop-system-20260812/stage3/check_git_auth.sh` and installed by `backup_commit.sh --install`.
+
+---
+
+## Secret Commit Boundary
+
+Git is a write-once distribution layer: a token committed to one commit stays
+in every clone and every bundle forever. The boundary must be checked at four
+layers because any single layer can be bypassed:
+
+- pre-commit: scan staged files before the commit object exists
+- pre-push: scan all tracked files before history leaves the machine
+- publish: scan before local Feishu upload
+- CI: scan before any remote build or publish
+
+### Checklist: Before Any Commit Or Publish
+
+- [ ] `check_secrets.py --staged` passes before `git commit`
+- [ ] `check_secrets.py --all` passes before `git push` and `publish.sh`
+- [ ] `.publish-tokens`, `.env`, `*.pem`, `*.key`, credentials files are not tracked
+- [ ] Scanner output reports only file/line/category, never the matched secret
+- [ ] Local token files have ACL restricted to current user, SYSTEM, and Administrators
+- [ ] Temp extraction of source documents with passwords is deleted immediately; never leave plaintext password dumps in `%TEMP%`
+
+**Real-world example**: A temp evidence corpus created for document audit contained
+244 extracted files with plaintext email passwords and system account passwords.
+They were not in git, but were readable from `%TEMP%` and had broad ACLs. The
+corpus was deleted, `.publish-tokens` ACL was restricted to the current user,
+and `check_secrets.py` was added at pre-commit/pre-push/publish/CI boundaries.
