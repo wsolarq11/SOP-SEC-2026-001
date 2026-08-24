@@ -36,6 +36,12 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(len(entries), 5)
 
+    def test_all_registry_versions_locked_to_1_0(self):
+        entries, errors = registry_lib.parse_registry()
+        self.assertEqual(errors, [])
+        for entry in entries:
+            self.assertEqual(entry["version"], registry_lib.LOCKED_VERSION)
+
     def test_registry_render_matches_generated_md(self):
         entries, errors = registry_lib.parse_registry()
         self.assertEqual(errors, [])

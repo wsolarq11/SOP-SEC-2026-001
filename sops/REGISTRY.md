@@ -59,9 +59,9 @@
 | 文档号 | 标题 | 层级 | 类型 | 域名 | 版本 | 关联标准 | 编制人 | 状态 | 源文件 | 目标目录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | SOP-GEN-2026-001 | 合规与标准定位 | — | reference | GEN | 1.0 | ISO 9001 / 27001 / 20000 | 待定 | Draft | sops/SOP-GEN-2026-001-合规与标准定位.md | 07-参考与说明 |
-| SOP-GEN-2026-002 | 表格排版规范 | L2 | standard | GEN | 1.1 | 通用（不绑定单一标准） | 段天俊 | Draft | sops/SOP-GEN-2026-002-表格排版规范.md | 06-GEN-通用 |
-| SOP-SEC-2026-001 | 安防平台人员变动信息处理标准作业程序书 | L3 | procedure | SEC | 1.1 | ISO/IEC 27001（人力资源安全 / offboarding） | 段天俊 | Draft | sops/SOP-SEC-2026-001.md | 01-SEC-信息安全 |
-| SOP-DESK-2026-001 | 员工电脑配给与收回标准作业程序书 | L3 | procedure | DESK | 1.7 | ISO/IEC 20000-1（人力资源安全 / 配给与收回） | 段天俊 | Draft | sops/SOP-DESK-2026-001.md | 03-DESK-桌面终端 |
+| SOP-GEN-2026-002 | 表格排版规范 | L2 | standard | GEN | 1.0 | 通用（不绑定单一标准） | 段天俊 | Draft | sops/SOP-GEN-2026-002-表格排版规范.md | 06-GEN-通用 |
+| SOP-SEC-2026-001 | 安防平台人员变动信息处理标准作业程序书 | L3 | procedure | SEC | 1.0 | ISO/IEC 27001（人力资源安全 / offboarding） | 段天俊 | Draft | sops/SOP-SEC-2026-001.md | 01-SEC-信息安全 |
+| SOP-DESK-2026-001 | 员工电脑配给与收回标准作业程序书 | L3 | procedure | DESK | 1.0 | ISO/IEC 20000-1（人力资源安全 / 配给与收回） | 段天俊 | Draft | sops/SOP-DESK-2026-001.md | 03-DESK-桌面终端 |
 | REF-GEN-2026-001 | SOP与规范库 · 系统说明 | — | reference | GEN | 1.0 | — | 段天俊 | Draft | SOP-通用-系统说明.md | 07-参考与说明 |
 
 ## 分配规则

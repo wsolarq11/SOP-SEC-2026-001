@@ -18,6 +18,7 @@ TABLE_HEADING = "## 已分配编号"
 DOC_TYPES = {"policy", "standard", "procedure", "guideline", "reference"}
 DOMAINS = {"INFRA", "SEC", "APP", "DESK", "DR", "GEN"}
 VALID_STATUSES = {"Draft", "Review", "Approved", "Retired"}
+LOCKED_VERSION = "1.0"
 COLUMNS = [
     "document_id",
     "title",
@@ -184,6 +185,8 @@ def validate_registry_entries(entries, errors, verbose=False):
         seen_ids.add(did)
         seen_sources.add(src)
 
+        if entry.get("version") != LOCKED_VERSION:
+            fail("%s: 版本已锁死为 %s，当前为 %r" % (did, LOCKED_VERSION, entry.get("version")))
         status = entry.get("status", "") or ""
         if status not in VALID_STATUSES:
             fail("%s: 未知 status=%r" % (did, status))

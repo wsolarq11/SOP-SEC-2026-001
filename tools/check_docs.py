@@ -21,6 +21,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from registry_lib import (
+    LOCKED_VERSION,
     REGISTRY_JSON_REL,
     REGISTRY_REL,
     ROOT,
@@ -105,6 +106,10 @@ def main():
             if missing:
                 issues += 1
                 print("[FAIL] %s: front matter 缺 %s" % (rel, missing))
+            if fm.get("version") != LOCKED_VERSION:
+                issues += 1
+                print("[FAIL] %s: 版本已锁死为 %s，当前为 %r"
+                      % (rel, LOCKED_VERSION, fm.get("version")))
         else:
             print("[SKIP] %s: 无 front matter（索引/说明类文档）" % rel)
         # 1.1) 全库标题括号校验：所有 md 的 H1-H6 一律不得含括号，
