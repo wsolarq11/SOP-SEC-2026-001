@@ -3,6 +3,7 @@
 Runs without third-party packages. Exercises the registry contract,
 the stdlib docx generator, the secret scanner, and the docs health check.
 """
+import json
 import os
 import subprocess
 import sys
@@ -10,13 +11,17 @@ import tempfile
 import unittest
 import zipfile
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+if os.path.join(HERE, "feishu_preview_proxy") not in sys.path:
+    sys.path.insert(0, os.path.join(HERE, "feishu_preview_proxy"))
 
 import check_secrets
+import feishu_mitm_proxy as feishu_proxy
 import registry_lib
 import registry_render
 import sop_to_docx_stdlib
@@ -216,6 +221,114 @@ approver: Tester
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("OK:", proc.stdout)
+
+
+class FeishuPreviewProxyTests(unittest.TestCase):
+    def test_default_routes_cover_three_preview_hosts(self):
+        routes = feishu_proxy.DEFAULT_CONFIG["routes"]
+        self.assertEqual(set(routes), {
+            "internal-api-drive-stream.feishu.cn",
+            "internal-api-lark-api.feishu.cn",
+            "weboffice.feishu-3rd-party-services.com",
+        })
+
+    def test_config_overrides_routes_and_keeps_defaults(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "config.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"routes": {"example.test": "upstream.test"}}, f)
+            config = feishu_proxy.load_config(path)
+        self.assertEqual(config["routes"], {"example.test": "upstream.test"})
+        self.assertEqual(config["listen_port"], 18080)
+
+    def test_pac_generation_contains_configured_hosts_and_port(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = dict(feishu_proxy.DEFAULT_CONFIG)
+            config["listen_port"] = 19090
+            pac = feishu_proxy.write_pac(Path(tmp), config)
+            text = pac.read_text(encoding="utf-8")
+        self.assertIn("internal-api-drive-stream.feishu.cn", text)
+        self.assertIn("PROXY 127.0.0.1:19090", text)
+        self.assertIn('"weboffice.feishu-3rd-party-services.com": true', text)
+
+    def test_safe_headers_redacts_cookie_and_authorization(self):
+        headers = [
+            (b"Cookie", b"session=secret"),
+            (b"Authorization", b"Bearer token"),
+            (b"Host", b"example.test"),
+        ]
+        text = feishu_proxy.safe_headers(headers)
+        self.assertNotIn("session", text)
+        self.assertNotIn("Bearer", text)
+        self.assertIn("Host=", text)
+
+    def test_cors_headers_are_injected(self):
+        head = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
+        origin = b"https://xcn87k1zyro7.feishu.cn"
+        out = feishu_proxy.add_cors_headers(head, origin, [(b"Origin", origin)])
+        self.assertIn(b"Access-Control-Allow-Origin: " + origin, out)
+        self.assertIn(b"Content-Type: application/json", out)
+
+    def test_rewrite_request_preserves_original_host(self):
+        request_line = b"GET /space/api/box/stream/download HTTP/1.1"
+        headers = [
+            (b"Host", b"internal-api-drive-stream.feishu.cn"),
+            (b"Proxy-Connection", b"keep-alive"),
+        ]
+        out = feishu_proxy.rewrite_request(request_line, headers, b"")
+        self.assertIn(b"Host: internal-api-drive-stream.feishu.cn", out)
+        self.assertNotIn(b"Proxy-Connection", out)
+
+    def test_forward_response_body_streams_content_length(self):
+        upstream = feishu_proxy.BufferedSocket(FakeSocket(b"hello"))
+        client = RecordingClient()
+        feishu_proxy.forward_response_body(
+            upstream,
+            client,
+            b"GET",
+            [(b"Content-Length", b"5")],
+            200,
+        )
+        self.assertEqual(client.data, b"hello")
+
+    def test_forward_response_body_streams_chunked(self):
+        body = b"5\r\nhello\r\n0\r\n\r\n"
+        upstream = feishu_proxy.BufferedSocket(FakeSocket(body))
+        client = RecordingClient()
+        feishu_proxy.forward_response_body(
+            upstream,
+            client,
+            b"GET",
+            [(b"Transfer-Encoding", b"chunked")],
+            200,
+        )
+        self.assertEqual(client.data, body)
+
+
+class FakeSocket:
+    def __init__(self, data):
+        self.data = data
+        self.offset = 0
+
+    def recv(self, size):
+        if self.offset >= len(self.data):
+            return b""
+        end = min(len(self.data), self.offset + size)
+        out = self.data[self.offset:end]
+        self.offset = end
+        return out
+
+
+class RecordingClient:
+    def __init__(self):
+        self.sent = []
+
+    def sendall(self, data):
+        self.sent.append(data)
+
+    @property
+    def data(self):
+        return b"".join(self.sent)
 
 
 if __name__ == "__main__":

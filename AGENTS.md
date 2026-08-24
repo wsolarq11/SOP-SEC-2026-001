@@ -47,10 +47,12 @@ check_secrets.py（敏感信息扫描：扫 git 已跟踪文件/staged 内容中
 test_check_secrets.py（敏感扫描回归测试：staged 注入运行时拼接的假 token 必须被拦截，清理后全量扫描必须放行）
 backup_commit.sh（git 仓库备份：pre-commit 先扫描敏感信息，post-commit/pre-push hook 生成完整 git bundle 并同名覆盖上传飞书；GitHub 与飞书 bundle 均须成功，hook 失败会让 git 命令显式失败；支持 --install/--init/--dry-run）
 cleanup_90_md.py（90 目录清理：列出并删除散装 md，先 --dry-run 审计，再 --yes 执行）
+feishu_preview_proxy/ — 飞书在线预览本机代理（Windows 专用；运行时 CA/私钥/日志/profile 不入库，使用见该目录 README）
 .gitignore 关键规则：
 *.docx 绝不入库——本机有文件监视器会损坏 .docx，这是初始化提交就写明的纪律
 output/**/stage2/、output/**/restructured.html 为可复现中间产物，不入库
 .workbuddy/ 工具元数据不入库
+tools/feishu_preview_proxy/run/、config.json、日志为本机运行时产物，不入库
 三、文档治理（sops/registry.json 为机器唯一权威）
 编号规则：SOP-<域名>-<年>-<序号>（序号按"域名+年"各自递增，不足 3 位前补零；跨年不沿用旧序号）。登记后不回收、不重用（作废仅改状态为 Retired）
 doc_type（2026-08-14 起登记）：policy 方针 / standard 标准 / procedure 程序 / guideline 指南 / reference 参考说明；参考类（如系统说明）归入 07-参考与说明 目录
