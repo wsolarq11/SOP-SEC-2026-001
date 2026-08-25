@@ -3,7 +3,7 @@ document_id: REF-GEN-2026-001
 title: SOP与规范库 · 系统说明
 category: GEN
 doc_type: reference
-version: 1.0
+version: 1.3
 status: Draft
 author: 段天俊
 approver: 待定
@@ -43,7 +43,7 @@ effective_date: 待定
 | DR | 数据容灾 |
 | GEN | 通用 |
 
-> 编号由 git 跟踪的 `sops/REGISTRY.md` 统一分配与记录，防止重复/遗漏。版本真相源在 git（提交历史 / 标签），不把版本号写入文档号。
+> 编号由 git 跟踪的 `sops/registry.json` 统一分配与记录；`sops/REGISTRY.md` 是自动生成的审计视图。版本真相源在 git（提交历史 / 标签），不把版本号写入文档号。
 
 ## 三、固定结构条目模板
 每条 SOP 统一包含以下字段（front-matter + 正文）：
@@ -58,12 +58,13 @@ effective_date: 待定
 - 新增：把碎片知识发给我（口述、粘贴文本、或丢文件），我整理成模板、分配文档号并登记 registry.json，确认后写入本库（git 提交）；发布见“五、如何导出文档”。
 - 更新：说“更新 XX SOP”，我拉取现有内容修改，版本号 +1，同步 registry.json 后提交 git，再按“五、如何导出文档”发布。
 
-## 五、如何导出文档
-对我说“把 XX SOP 导出成文档”，或运行 `python tools/kb.py publish --dry-run`。发布管线从 git 源重新生成 docx 到 `%TEMP%\sop-exports\publish\`，再以成品 docx + 源文件 md 两个飞书节点同名覆盖上传；md 不入 IMA，docx 不入 git。
+## 五、如何发布文档
+对我说“把 XX SOP 导出成文档”，或运行 `python tools/kb.py publish --dry-run`。发布管线从 git 源重新生成 docx 到 `%TEMP%\sop-exports\publish\`，再以成品 docx 同名覆盖上传飞书；md 源不单独上传，源码由 GitHub 私有 remote 与 git bundle 备份。
 
-## 六、维护记录
+## 版本修订记录
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
-| v1.0 | 2026-08-12 | 初始化知识库与系统说明 |
-| v1.1 | 2026-08-12 | 分类体系调整为面向企业 IT：基础设施/信息安全/应用系统/终端桌面/数据容灾/通用 |
-| v1.2 | 2026-08-13 | 命名规范改为 ISO 语义式：SOP-<域名>-<年>-<序号>，新增域名代码表与 REGISTRY 编号索引 |
+| 1.0 | 2026-08-12 | 初始化知识库与系统说明 |
+| 1.1 | 2026-08-12 | 分类体系调整为面向企业 IT：基础设施/信息安全/应用系统/终端桌面/数据容灾/通用 |
+| 1.2 | 2026-08-13 | 命名规范改为 ISO 语义式：SOP-<域名>-<年>-<序号>，新增域名代码表与 REGISTRY 编号索引 |
+| 1.3 | 2026-08-21 | registry.json 唯一权威、REGISTRY.md 生成视图；md 不再单独上传飞书 |

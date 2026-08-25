@@ -18,7 +18,7 @@ TABLE_HEADING = "## 已分配编号"
 DOC_TYPES = {"policy", "standard", "procedure", "guideline", "reference"}
 DOMAINS = {"INFRA", "SEC", "APP", "DESK", "DR", "GEN"}
 VALID_STATUSES = {"Draft", "Review", "Approved", "Retired"}
-LOCKED_VERSION = "1.0"
+VERSION_RE = re.compile(r"^\d+\.\d+$")
 COLUMNS = [
     "document_id",
     "title",
@@ -68,6 +68,39 @@ def parse_fm(text):
                 k, v = lines[i].split(":", 1)
                 fm[k.strip()] = v.strip()
     return fm
+
+
+def latest_revision_version(text):
+    """返回「版本修订记录」表中的最新版本；无表或无版本行时返回 None。
+
+    表头不计入版本，版本按数字大小而非出现顺序取最大，避免后续
+    新增修订时遗漏旧行导致版本回退。
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip() != "## 版本修订记录":
+            continue
+        j = i + 1
+        while j < len(lines) and not lines[j].strip().startswith("|"):
+            j += 1
+        versions = []
+        for row in lines[j:]:
+            st = row.strip()
+            if st.startswith("#"):
+                break
+            if not st.startswith("|"):
+                continue
+            cells = [c.strip() for c in st.strip("|").split("|")]
+            if cells and all(set(c) <= set("-: ") for c in cells):
+                continue
+            if cells and VERSION_RE.match(cells[0]):
+                left, right = cells[0].split(".", 1)
+                versions.append((int(left), int(right)))
+        if not versions:
+            return None
+        left, right = max(versions)
+        return "%d.%d" % (left, right)
+    return None
 
 
 def parse_registry(registry_path=None):
@@ -185,8 +218,6 @@ def validate_registry_entries(entries, errors, verbose=False):
         seen_ids.add(did)
         seen_sources.add(src)
 
-        if entry.get("version") != LOCKED_VERSION:
-            fail("%s: 版本已锁死为 %s，当前为 %r" % (did, LOCKED_VERSION, entry.get("version")))
         status = entry.get("status", "") or ""
         if status not in VALID_STATUSES:
             fail("%s: 未知 status=%r" % (did, status))
@@ -221,13 +252,20 @@ def validate_registry_entries(entries, errors, verbose=False):
 
         try:
             with open(abs_src, encoding="utf-8") as f:
-                fm = parse_fm(f.read())
+                text = f.read()
+            fm = parse_fm(text)
         except OSError as exc:
             fail("%s: 无法读取源文件: %s" % (did, exc))
             continue
         if not fm:
             fail("%s: 源文件缺少 front matter: %s" % (did, src))
             continue
+        latest = latest_revision_version(text)
+        if latest is not None and fm.get("version") != latest:
+            fail(
+                "%s: front matter version=%r 与版本修订记录最新版 %s 不一致"
+                % (src, fm.get("version"), latest)
+            )
         for fm_key, reg_key in FRONT_MATTER_MATCH:
             if fm.get(fm_key) != entry.get(reg_key, ""):
                 fail(

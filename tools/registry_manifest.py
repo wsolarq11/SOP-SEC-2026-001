@@ -27,6 +27,11 @@ def main():
     if issues:
         sys.exit(1)
 
+    drafts = [e["document_id"] for e in entries if e.get("status") == "Draft"]
+    if drafts:
+        print("[FAIL] Draft 状态禁止生成发布清单: %s" % ", ".join(drafts), file=sys.stderr)
+        sys.exit(1)
+
     seen_sources = set()
     for entry in entries:
         if entry.get("status") == "Retired":

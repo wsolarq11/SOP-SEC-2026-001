@@ -41,11 +41,21 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(len(entries), 5)
 
-    def test_all_registry_versions_locked_to_1_0(self):
+    def test_front_matter_version_matches_latest_revision(self):
         entries, errors = registry_lib.parse_registry()
         self.assertEqual(errors, [])
         for entry in entries:
-            self.assertEqual(entry["version"], registry_lib.LOCKED_VERSION)
+            if entry.get("status") == "Retired":
+                continue
+            with open(os.path.join(ROOT, entry["source"]), encoding="utf-8") as f:
+                text = f.read()
+            latest = registry_lib.latest_revision_version(text)
+            if latest is not None:
+                self.assertEqual(
+                    registry_lib.parse_fm(text).get("version"),
+                    latest,
+                    entry["document_id"],
+                )
 
     def test_registry_render_matches_generated_md(self):
         entries, errors = registry_lib.parse_registry()
@@ -183,7 +193,7 @@ approver: Tester
         self.assertIn("OK:", proc.stdout)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
-    def test_manifest_emits_registry_placeholder(self):
+    def test_manifest_rejects_draft_publish(self):
         proc = subprocess.run(
             [sys.executable, os.path.join(HERE, "registry_manifest.py")],
             cwd=ROOT,
@@ -192,9 +202,8 @@ approver: Tester
             encoding="utf-8",
             errors="replace",
         )
-        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertIn("sops/REGISTRY.md|NONE", proc.stdout)
-        self.assertIn("sops/registry.json|NONE", proc.stdout)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("Draft", proc.stdout + proc.stderr)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
 
