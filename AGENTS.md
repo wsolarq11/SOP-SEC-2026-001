@@ -69,7 +69,7 @@ md front matter schema（新格式，faa3c44 起连坐升级；2026-08-18 收敛
 publish\ 是可重建快照，不是镜像：临时区可能随时被清空，publish.sh 通过 mkdir -p 自动重建；发布前必须从 git 源重新构建，勿复用旧快照
 临时区路径由 publish.sh 管理：当前默认 %TEMP%\sop-exports\publish，可用 PUB 环境变量覆盖；换账号/机器时不要假设该目录或旧文件仍存在
 backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次提交和推送前重建并同名覆盖上传到飞书 90 目录（BACKUP_WIKI Wiki 节点），上传失败则 commit/push 显式失败；默认 %TEMP%\sop-exports\backup，可用 BACKUP_DIR 覆盖；本地开发可用 KB_BACKUP_MODE=soft（失败不阻断）或 KB_BACKUP_MODE=skip（跳过备份），默认 hard 保持强制双备份
-清掉 %TEMP% 的后果：docx 可由生成器重建、md 可从 git 恢复——唯一例外见 §六
+清掉 %TEMP% 的后果：docx 可由生成器重建、md 可从 git 恢复；飞书上传 token 与 bot 凭据在仓库外，需由外部保留
 六、当前状态（2026-08-25）
 系统说明已统一移入 `sops/SOP-通用-系统说明.md`，源文件不再放在仓库根。GitHub Actions 当前 job 显示 `runner_id: 0`、无步骤日志且极简 workflow 同样失败，属于 runner 分配层问题，仓库侧没有可修复点；本地 `python tools/kb.py check`、`test`、`publish --dry-run` 是当前可用验证入口。活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
 七、标准工作流
@@ -79,7 +79,7 @@ backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次�
 跑 `python tools/kb.py check` 健康检查（front matter 完整性 + registry.json 契约一致性）
 构建验证：python tools/kb.py publish --dry-run，输出到 %TEMP%\sop-exports\publish\（docx 不入库）
 git 提交 md 源与生成器改动（docx 一律不入库；pre-commit 先跑 `python tools/kb.py secrets --staged`，post-commit hook 必须完成飞书 bundle 上传，失败时 git commit 显式报错）
-git push origin master：pre-push hook 先跑 `python tools/kb.py secrets --all`，再跑 `python tools/kb.py auth --network` 清旧凭据并实测 remote，再强制飞书 bundle 上传成功，最后推送 GitHub；GitHub Actions 随后自动跑敏感扫描、健康检查、docx 构建，并以 bot 身份自动上传飞书
+git push origin master：pre-push hook 先跑 `python tools/kb.py secrets --all`，再跑 `python tools/kb.py auth --network` 清旧凭据并实测 remote，再强制飞书 bundle 上传成功，最后推送 GitHub；GitHub Actions 恢复后会自动跑敏感扫描、健康检查、docx 构建，并以 bot 身份自动上传飞书；runner 不可用期间以本机 `python tools/kb.py publish` 作为发布兜底
 本地上传飞书兜底：python tools/kb.py publish（仅成品 docx 同名覆盖对应节点；md 不再单独上传）
 一次性清理 90 目录旧 md：python tools/kb.py cleanup --dry-run 审计后，再 --yes 执行删除
 八、禁忌

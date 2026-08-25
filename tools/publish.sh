@@ -12,7 +12,7 @@
 #   - 每个 docx 条目必须提供 docx 上传 token，缺失即失败
 #
 # 用法:
-#   bash publish.sh            # 全量构建+校验+上传
+#   bash publish.sh            # 发布清单中已 Approved 文档
 #   bash publish.sh --dry-run  # 仅构建+校验+token 完备性检查，不上传
 #   bash publish.sh <md路径>   # 只发布指定文档（相对仓库根，如 sops/SOP-SEC-2026-001.md）
 #
