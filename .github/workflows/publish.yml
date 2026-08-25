@@ -11,7 +11,7 @@ permissions:
 jobs:
   validate:
     name: Validate and build
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
@@ -45,7 +45,7 @@ jobs:
           APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
           PY: python
           AS: bot
-          PUB: ${{ runner.temp }}\sop-exports\publish
+          PUB: ${{ runner.temp }}/sop-exports/publish
         run: |
           if ([string]::IsNullOrEmpty($env:APP_ID) -or [string]::IsNullOrEmpty($env:APP_SECRET)) {
             Write-Host 'LARK_APP_ID/LARK_APP_SECRET not configured; validating only.'
