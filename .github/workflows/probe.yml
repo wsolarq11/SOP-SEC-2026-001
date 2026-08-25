@@ -1,0 +1,12 @@
+name: Probe Runner
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  probe:
+    name: Probe runner allocation
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo probe-ok
