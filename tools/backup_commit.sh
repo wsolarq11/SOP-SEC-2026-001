@@ -102,6 +102,7 @@ HOOK_EOF
     elif [ "$HOOK_NAME" = "pre-push" ]; then
       cat > "$HOOK" <<'HOOK_EOF'
 #!/bin/sh
+set -e
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 python "$ROOT/tools/kb.py" secrets --all
 python "$ROOT/tools/kb.py" auth --network
