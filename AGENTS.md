@@ -23,7 +23,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 
 AGENTS.md — SOP 知识库工作区指南
-本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-21（GitHub Actions 校验、构建、bot 上传飞书全链路通过；GitHub 旧凭据层清理与 pre-push 守卫实测通过）。
+本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-25（发布语义统一为 Draft 不发布、Approved 才发布、Retired 注销；GitHub Actions runner 暂不可用，本地 check/test/publish 可用）。
 
 一、仓库定位：源 vs 临时区
 位置	角色	git
@@ -70,8 +70,8 @@ publish\ 是可重建快照，不是镜像：临时区可能随时被清空，pu
 临时区路径由 publish.sh 管理：当前默认 %TEMP%\sop-exports\publish，可用 PUB 环境变量覆盖；换账号/机器时不要假设该目录或旧文件仍存在
 backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次提交和推送前重建并同名覆盖上传到飞书 90 目录（BACKUP_WIKI Wiki 节点），上传失败则 commit/push 显式失败；默认 %TEMP%\sop-exports\backup，可用 BACKUP_DIR 覆盖；本地开发可用 KB_BACKUP_MODE=soft（失败不阻断）或 KB_BACKUP_MODE=skip（跳过备份），默认 hard 保持强制双备份
 清掉 %TEMP% 的后果：docx 可由生成器重建、md 可从 git 恢复——唯一例外见 §六
-六、未决事项（2026-08-14 已清零）
-系统说明源文件工作树已删除 → 已解决：实测根目录 SOP-通用-系统说明.md 仍被 git 跟踪且内容完好（git log 无删除提交），registry.json 登记有效，无需恢复或注销。
+六、当前状态（2026-08-25）
+系统说明已统一移入 `sops/SOP-通用-系统说明.md`，源文件不再放在仓库根。GitHub Actions 当前 job 显示 `runner_id: 0`、无步骤日志且极简 workflow 同样失败，属于 runner 分配层问题，仓库侧没有可修复点；本地 `python tools/kb.py check`、`test`、`publish --dry-run` 是当前可用验证入口。活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
 七、标准工作流
 仓库备份初始化（一次性）：python tools/kb.py backup --install，再 python tools/kb.py backup --init --wiki-token <90目录wiki node_token>
 

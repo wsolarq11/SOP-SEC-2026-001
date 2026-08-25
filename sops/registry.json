@@ -9,7 +9,7 @@
       "domain": "GEN",
       "version": "1.0",
       "related_standards": "ISO 9001 / 27001 / 20000",
-      "author": "待定",
+      "author": "段天俊",
       "status": "Draft",
       "source": "sops/SOP-GEN-2026-001-合规与标准定位.md",
       "target_dir": "07-参考与说明"
@@ -59,7 +59,7 @@
       "level": "—",
       "doc_type": "reference",
       "domain": "DESK",
-      "version": "2.0",
+      "version": "2.1",
       "related_standards": "ISO/IEC 20000-1（人力资源安全 / 配给与收回）",
       "author": "段天俊",
       "status": "Draft",
@@ -98,11 +98,11 @@
       "level": "—",
       "doc_type": "reference",
       "domain": "GEN",
-      "version": "1.3",
+      "version": "1.4",
       "related_standards": "—",
       "author": "段天俊",
       "status": "Draft",
-      "source": "SOP-通用-系统说明.md",
+      "source": "sops/SOP-通用-系统说明.md",
       "target_dir": "07-参考与说明"
     }
   ]

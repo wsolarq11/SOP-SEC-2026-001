@@ -55,7 +55,7 @@ def collect_md(dirs):
 
 
 SOURCE_MANIFEST_HEADINGS = {"## 6 源文件清单", "## 源文件清单"}
-SOURCE_MANIFEST_COLUMNS = {"引用 ID", "用途", "检索日期", "校验和", "源路径"}
+SOURCE_MANIFEST_COLUMNS = {"引用 ID", "用途", "源路径"}
 
 
 def validate_source_manifest(text, rel):

@@ -3,7 +3,7 @@ document_id: REF-GEN-2026-001
 title: SOP与规范库 · 系统说明
 category: GEN
 doc_type: reference
-version: 1.3
+version: 1.4
 status: Draft
 author: 段天俊
 approver: 待定
@@ -22,8 +22,6 @@ effective_date: 待定
 - 数据容灾（DR）：数据库运维、备份策略、容灾演练、数据合规
 - 通用（GEN）：跨域基础规范、文档与命名规范、流程与角色定义
 
-（分类可随时增删，告诉我即可。）
-
 ## 二、ISO 语义式编号与命名规范
 每条 SOP 分配一个受控文档号，格式：
 `SOP-<域名>-<年>-<序号>`
@@ -31,7 +29,7 @@ effective_date: 待定
 - 年：文档建立年份（如 2026）
 - 序号：3 位，按「域名 + 年」各自递增（如 SEC-2026 第一条为 001）
 
-文件名即文档号，例如 `SOP-SEC-2026-001.md`。文档标题写在文件内（front-matter 的 title 字段），不在文件名重复。
+源文件统一放在 `sops/`；文档号、标题、分类、类型、版本与状态以 front matter 和 `sops/registry.json` 为准，不要求文件名等于文档号。docx 输出名与源文件 basename 一致。
 
 ### 域名代码表
 | 域名代码 | 分类 |
@@ -55,11 +53,11 @@ effective_date: 待定
 - 关联资料
 
 ## 四、如何新增 / 更新
-- 新增：把碎片知识发给我（口述、粘贴文本、或丢文件），我整理成模板、分配文档号并登记 registry.json，确认后写入本库（git 提交）；发布见“五、如何导出文档”。
-- 更新：说“更新 XX SOP”，我拉取现有内容修改，版本号 +1，同步 registry.json 后提交 git，再按“五、如何导出文档”发布。
+- 新增：把规范文本整理后放入 `sops/`，在 `sops/registry.json` 登记文档号，运行 `python tools/kb.py registry-render --write` 后提交 git；发布见“五、如何发布文档”。
+- 更新：修改源文档并升版本，同步 `sops/registry.json` 与版本修订记录，提交 git，再按“五、如何发布文档”发布。
 
 ## 五、如何发布文档
-对我说“把 XX SOP 导出成文档”，或运行 `python tools/kb.py publish --dry-run`。发布管线从 git 源重新生成 docx 到 `%TEMP%\sop-exports\publish\`，再以成品 docx 同名覆盖上传飞书；md 源不单独上传，源码由 GitHub 私有 remote 与 git bundle 备份。
+运行 `python tools/kb.py publish --dry-run` 验证，或运行 `python tools/kb.py publish` 发布已 `Approved` 文档。发布管线从 git 源重新生成 docx 到 `%TEMP%\sop-exports\publish\`，再以成品 docx 同名覆盖上传飞书；md 源不单独上传，源码由 GitHub 私有 remote 与 git bundle 备份。
 
 ## 版本修订记录
 | 版本 | 日期 | 说明 |
@@ -68,3 +66,4 @@ effective_date: 待定
 | 1.1 | 2026-08-12 | 分类体系调整为面向企业 IT：基础设施/信息安全/应用系统/终端桌面/数据容灾/通用 |
 | 1.2 | 2026-08-13 | 命名规范改为 ISO 语义式：SOP-<域名>-<年>-<序号>，新增域名代码表与 REGISTRY 编号索引 |
 | 1.3 | 2026-08-21 | registry.json 唯一权威、REGISTRY.md 生成视图；md 不再单独上传飞书 |
+| 1.4 | 2026-08-25 | 源文件统一移入 sops/，删除口语化 AI 使用说明，命名规则改为以 front matter 与 registry 为准 |
