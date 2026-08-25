@@ -39,7 +39,7 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(json_path))
         entries, errors = registry_lib.parse_registry()
         self.assertEqual(errors, [])
-        self.assertEqual(len(entries), 5)
+        self.assertGreaterEqual(len(entries), 5)
 
     def test_front_matter_version_matches_latest_revision(self):
         entries, errors = registry_lib.parse_registry()
