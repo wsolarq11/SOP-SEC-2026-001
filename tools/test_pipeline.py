@@ -193,7 +193,7 @@ approver: Tester
         self.assertIn("OK:", proc.stdout)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
-    def test_manifest_rejects_draft_publish(self):
+    def test_manifest_skips_draft_without_approved(self):
         proc = subprocess.run(
             [sys.executable, os.path.join(HERE, "registry_manifest.py")],
             cwd=ROOT,
@@ -202,8 +202,8 @@ approver: Tester
             encoding="utf-8",
             errors="replace",
         )
-        self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("Draft", proc.stdout + proc.stderr)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("没有 Approved", proc.stdout + proc.stderr)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
 

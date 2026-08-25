@@ -8,6 +8,7 @@
 
 规则：
 - 以 sops/registry.json 为机器唯一来源，Retired 文档不进入清单。
+- 只有 Approved 文档进入发布清单；Draft 文档只提示，不阻断其他文档发布。
 - docx 输出名 = 源文件 basename 的 .md 换成 .docx。
 - REGISTRY.md 与 registry.json 不生成 docx（输出为 NONE），源码随仓库 bundle 备份。
 """
@@ -29,13 +30,11 @@ def main():
 
     drafts = [e["document_id"] for e in entries if e.get("status") == "Draft"]
     if drafts:
-        print("[FAIL] Draft 状态禁止生成发布清单: %s" % ", ".join(drafts), file=sys.stderr)
-        sys.exit(1)
+        print("[WARN] Draft 文档不发布，已跳过: %s" % ", ".join(drafts), file=sys.stderr)
 
+    approved = [e for e in entries if e.get("status") == "Approved"]
     seen_sources = set()
-    for entry in entries:
-        if entry.get("status") == "Retired":
-            continue
+    for entry in approved:
         src = entry.get("source", "").replace(os.sep, "/")
         if src in seen_sources:
             print("[FAIL] 发布清单源文件重复: %s" % src)
@@ -43,6 +42,9 @@ def main():
         seen_sources.add(src)
         docx_name = os.path.splitext(os.path.basename(src))[0] + ".docx"
         print("%s|%s" % (src, docx_name))
+
+    if not approved:
+        print("[WARN] 当前没有 Approved 文档，无可发布条目", file=sys.stderr)
 
     print("%s|NONE" % REGISTRY_REL)
     print("%s|NONE" % REGISTRY_JSON_REL)

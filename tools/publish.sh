@@ -5,7 +5,8 @@
 #
 # 发布契约：sops/registry.json「已分配编号」数据是清单唯一机器来源。
 #   - docx 输出名 = 源文件 basename 的 .md 换成 .docx
-#   - Retired 文档不进入清单
+#   - Retired 文档不进入清单；Draft 文档跳过并提示
+#   - 只有 Approved 文档进入发布清单；无 Approved 时明确提示，不阻断
 #   - REGISTRY.md / registry.json 不生成 docx（输出为 NONE），源码随仓库 bundle 备份
 #   - 发布只上传 docx；md 不再单独上传
 #   - 每个 docx 条目必须提供 docx 上传 token，缺失即失败
@@ -64,6 +65,19 @@ fi
 printf '  %s
 ' "${MANIFEST[@]}"
 
+HAS_DOCX=0
+for entry in "${MANIFEST[@]}"; do
+  IFS='|' read -r _mdrel docxname <<< "$entry"
+  if [ "$docxname" != "NONE" ]; then
+    HAS_DOCX=1
+  fi
+done
+if [ "$HAS_DOCX" = "0" ]; then
+  echo "当前没有 Approved 文档，无可发布条目"
+  echo "统一语义：Draft 不发布，Approved 才发布，Retired 注销"
+  exit 0
+fi
+
 # 读取上传 token（gitignore 忽略，不入库）
 declare -A DOCTOK
 if [ ! -f "$ROOT/.publish-tokens" ]; then
@@ -91,6 +105,7 @@ for entry in "${MANIFEST[@]}"; do
 done
 if [ "$FAIL" -gt 0 ]; then
   echo "  token 缺失 $FAIL 项，请补充 .publish-tokens 后重跑"
+  exit 1
 else
   echo "  ✅ 全部清单条目均有上传 token"
 fi
@@ -121,6 +136,11 @@ for entry in "${MANIFEST[@]}"; do
   BUILT_OK["$mdrel"]=1
   OK=$((OK+1))
 done
+
+if [ "$FAIL" -gt 0 ]; then
+  echo "构建/校验失败 $FAIL 项，中止，未上传"
+  exit 1
+fi
 
 if [ "$DRY" = "1" ]; then
   echo
