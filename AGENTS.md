@@ -71,7 +71,7 @@ publish\ 是可重建快照，不是镜像：临时区可能随时被清空，pu
 backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次提交和推送前重建并同名覆盖上传到飞书 90 目录（BACKUP_WIKI Wiki 节点），上传失败则 commit/push 显式失败；默认 %TEMP%\sop-exports\backup，可用 BACKUP_DIR 覆盖；本地开发可用 KB_BACKUP_MODE=soft（失败不阻断）或 KB_BACKUP_MODE=skip（跳过备份），默认 hard 保持强制双备份
 清掉 %TEMP% 的后果：docx 可由生成器重建、md 可从 git 恢复；飞书上传 token 与 bot 凭据在仓库外，需由外部保留
 六、当前状态（2026-08-25）
-系统说明已统一移入 `sops/SOP-通用-系统说明.md`，源文件不再放在仓库根。GitHub Actions 当前 job 显示 `runner_id: 0`、无步骤日志且极简 workflow 同样失败，属于 runner 分配层问题，仓库侧没有可修复点；本地 `python tools/kb.py check`、`test`、`publish --dry-run` 是当前可用验证入口。活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
+系统说明已统一移入 `sops/SOP-通用-系统说明.md`，源文件不再放在仓库根。GitHub Actions 当前 job 创建后立即失败：`runner_id: 0`、无步骤日志，极简 workflow 同样失败；症状与私有仓库 Actions 分钟配额耗尽一致，需在 GitHub 计费/用量页确认，当前网络未能通过 API 核验。仓库侧无可修代码；本地 `python tools/kb.py check`、`test`、`publish --dry-run` 是当前可用验证入口。活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
 七、标准工作流
 仓库备份初始化（一次性）：python tools/kb.py backup --install，再 python tools/kb.py backup --init --wiki-token <90目录wiki node_token>
 
