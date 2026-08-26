@@ -26,22 +26,39 @@ import registry_lib
 import registry_render
 import sop_to_docx_stdlib
 
+_SAMPLE_SOP_MD = """---
+document_id: SOP-GEN-2026-TEST
+title: Test SOP
+category: GEN
+doc_type: procedure
+version: 1.0
+status: Draft
+author: Tester
+approver: Tester
+---
+# Test SOP
+## 1 Table
+| A | B |
+| --- | --- |
+| 1 | 2 |
+"""
+
 
 class PipelineTests(unittest.TestCase):
-    def test_registry_contract_is_clean(self):
+    def test_registry_contract_is_clean(self) -> None:
         entries, errors = registry_lib.parse_registry()
         issues, _ = registry_lib.validate_registry_entries(entries, errors)
         self.assertEqual(errors, [])
         self.assertEqual(issues, 0)
 
-    def test_registry_json_is_machine_source(self):
+    def test_registry_json_is_machine_source(self) -> None:
         json_path = os.path.join(ROOT, registry_lib.REGISTRY_JSON_REL)
         self.assertTrue(os.path.isfile(json_path))
         entries, errors = registry_lib.parse_registry()
         self.assertEqual(errors, [])
         self.assertGreaterEqual(len(entries), 5)
 
-    def test_front_matter_version_matches_latest_revision(self):
+    def test_front_matter_version_matches_latest_revision(self) -> None:
         entries, errors = registry_lib.parse_registry()
         self.assertEqual(errors, [])
         for entry in entries:
@@ -57,7 +74,7 @@ class PipelineTests(unittest.TestCase):
                     entry["document_id"],
                 )
 
-    def test_registry_render_matches_generated_md(self):
+    def test_registry_render_matches_generated_md(self) -> None:
         entries, errors = registry_lib.parse_registry()
         self.assertEqual(errors, [])
         table = registry_render.render_table(entries)
@@ -74,7 +91,7 @@ class PipelineTests(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
-    def test_registry_parser_uses_header_order(self):
+    def test_registry_parser_uses_header_order(self) -> None:
         registry_md = """## 已分配编号
 | 标题 | 文档号 | 状态 | 源文件 | 目标目录 | 类型 | 域名 | 版本 | 关联标准 | 编制人 | 层级 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -89,36 +106,23 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(entries[0]["document_id"], "SOP-TEST-2026-001")
         self.assertEqual(entries[0]["author"], "Tester")
 
-    def test_generator_writes_well_formed_docx(self):
-        md = """---
-document_id: SOP-GEN-2026-TEST
-title: Test SOP
-category: GEN
-doc_type: procedure
-version: 1.0
-status: Draft
-author: Tester
-approver: Tester
----
-# Test SOP
-## 1 Table
-| A | B |
-| --- | --- |
-| 1 | 2 |
-"""
+    def test_generator_writes_well_formed_docx(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             src = os.path.join(tmp, "input.md")
             out = os.path.join(tmp, "output.docx")
             with open(src, "w", encoding="utf-8") as f:
-                f.write(md)
+                f.write(_SAMPLE_SOP_MD)
             sop_to_docx_stdlib.build(src, out)
-            with zipfile.ZipFile(out) as zf:
-                self.assertIn("word/document.xml", zf.namelist())
-                self.assertIn("word/styles.xml", zf.namelist())
-                for part in ("word/document.xml", "word/header1.xml", "word/footer1.xml"):
-                    ET.fromstring(zf.read(part).decode("utf-8"))
+            self._assert_docx_xml(out)
 
-    def test_secret_scanner_rejects_high_confidence_token(self):
+    def _assert_docx_xml(self, out: str) -> None:
+        with zipfile.ZipFile(out) as zf:
+            self.assertIn("word/document.xml", zf.namelist())
+            self.assertIn("word/styles.xml", zf.namelist())
+            for part in ("word/document.xml", "word/header1.xml", "word/footer1.xml"):
+                ET.fromstring(zf.read(part).decode("utf-8"))
+
+    def test_secret_scanner_rejects_high_confidence_token(self) -> None:
         with tempfile.NamedTemporaryFile(
             "w", suffix=".tmp", delete=False, encoding="utf-8"
         ) as f:
@@ -130,57 +134,43 @@ approver: Tester
             os.unlink(path)
         self.assertTrue(hits, "high-confidence GitHub token should be detected")
 
-    def test_lark_json_cli_contract(self):
-        helper = os.path.join(HERE, "lark_json.py")
-        ok = subprocess.run(
-            [sys.executable, helper, "ok"],
-            input='log prefix\n{"ok": true}',
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
-        self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
-        token = subprocess.run(
-            [sys.executable, helper, "token"],
-            input='{"ok": true, "file_token": "abc"}',
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
-        self.assertEqual(token.stdout.strip(), "abc")
-        nested = subprocess.run(
-            [sys.executable, helper, "token"],
-            input='{"ok": true, "data": {"file_token": "abc"}}',
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
+    def test_lark_json_ok_accepts_true(self) -> None:
+        proc = self._run_lark("ok", 'log prefix\n{"ok": true}')
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_lark_json_token_flat_and_nested(self) -> None:
+        flat = self._run_lark("token", '{"ok": true, "file_token": "abc"}')
+        self.assertEqual(flat.stdout.strip(), "abc")
+        nested = self._run_lark(
+            "token", '{"ok": true, "data": {"file_token": "abc"}}'
         )
         self.assertEqual(nested.stdout.strip(), "abc")
+
+    def test_lark_json_output_is_lf(self) -> None:
         raw = subprocess.run(
-            [sys.executable, helper, "token"],
+            [sys.executable, os.path.join(HERE, "lark_json.py"), "token"],
             input=b'{"ok": true, "data": {"file_token": "abc"}}',
             capture_output=True,
         )
         self.assertNotIn(b"\r", raw.stdout)
         self.assertEqual(raw.stdout.strip(), b"abc")
-        bad = subprocess.run(
-            [sys.executable, helper, "ok"],
-            input='{"ok": false, "message": "denied"}',
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
+
+    def test_lark_json_failure_and_message(self) -> None:
+        bad = self._run_lark("ok", '{"ok": false, "message": "denied"}')
         self.assertEqual(bad.returncode, 1)
-        msg = subprocess.run(
-            [sys.executable, helper, "message"],
-            input='{"ok": false, "message": "denied"}',
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
+        msg = self._run_lark("message", '{"ok": false, "message": "denied"}')
         self.assertIn("denied", msg.stdout)
 
-    def test_docs_health_check_runs_clean(self):
+    def _run_lark(self, field: str, payload: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, os.path.join(HERE, "lark_json.py"), field],
+            input=payload,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    def test_docs_health_check_runs_clean(self) -> None:
         proc = subprocess.run(
             [sys.executable, os.path.join(HERE, "check_docs.py")],
             cwd=ROOT,
@@ -193,7 +183,7 @@ approver: Tester
         self.assertIn("OK:", proc.stdout)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
-    def test_manifest_skips_draft_without_approved(self):
+    def test_manifest_skips_draft_without_approved(self) -> None:
         proc = subprocess.run(
             [sys.executable, os.path.join(HERE, "registry_manifest.py")],
             cwd=ROOT,
@@ -206,8 +196,7 @@ approver: Tester
         self.assertIn("没有 Approved", proc.stdout + proc.stderr)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
-
-    def test_kb_cli_stage_path_resolves_toolchain(self):
+    def test_kb_cli_stage_path_resolves_toolchain(self) -> None:
         proc = subprocess.run(
             [sys.executable, os.path.join(ROOT, "tools", "kb.py"), "stage"],
             cwd=ROOT,
@@ -219,7 +208,7 @@ approver: Tester
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("tools", proc.stdout)
 
-    def test_kb_cli_dispatches_health_check(self):
+    def test_kb_cli_dispatches_health_check(self) -> None:
         proc = subprocess.run(
             [sys.executable, os.path.join(ROOT, "tools", "kb.py"), "check"],
             cwd=ROOT,
@@ -233,7 +222,7 @@ approver: Tester
 
 
 class FeishuPreviewProxyTests(unittest.TestCase):
-    def test_default_routes_cover_three_preview_hosts(self):
+    def test_default_routes_cover_three_preview_hosts(self) -> None:
         routes = feishu_proxy.DEFAULT_CONFIG["routes"]
         self.assertEqual(set(routes), {
             "internal-api-drive-stream.feishu.cn",
@@ -241,7 +230,7 @@ class FeishuPreviewProxyTests(unittest.TestCase):
             "weboffice.feishu-3rd-party-services.com",
         })
 
-    def test_config_overrides_routes_and_keeps_defaults(self):
+    def test_config_overrides_routes_and_keeps_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "config.json")
             with open(path, "w", encoding="utf-8") as f:
@@ -250,7 +239,7 @@ class FeishuPreviewProxyTests(unittest.TestCase):
         self.assertEqual(config["routes"], {"example.test": "upstream.test"})
         self.assertEqual(config["listen_port"], 18080)
 
-    def test_pac_generation_contains_configured_hosts_and_port(self):
+    def test_pac_generation_contains_configured_hosts_and_port(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             config = dict(feishu_proxy.DEFAULT_CONFIG)
             config["listen_port"] = 19090
@@ -260,7 +249,29 @@ class FeishuPreviewProxyTests(unittest.TestCase):
         self.assertIn("PROXY 127.0.0.1:19090", text)
         self.assertIn('"weboffice.feishu-3rd-party-services.com": true', text)
 
-    def test_safe_headers_redacts_cookie_and_authorization(self):
+    def test_ensure_certs_rebuilds_leaf_when_routes_change(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            first = feishu_proxy.ensure_certs(base, {
+                "old-internal.example": "public.example",
+            })
+            self.assertIn("DNS:old-internal.example",
+                          self._leaf_san(base, first))
+            second = feishu_proxy.ensure_certs(base, {
+                "new-internal.example": "public.example",
+            })
+            second_san = self._leaf_san(base, second)
+            self.assertIn("DNS:new-internal.example", second_san)
+            self.assertNotIn("DNS:old-internal.example", second_san)
+
+    def _leaf_san(self, base: Path, cert_dir: Path) -> str:
+        proc = feishu_proxy.openssl([
+            "x509", "-in", str(cert_dir / "leaf.crt"),
+            "-noout", "-ext", "subjectAltName",
+        ], cert_dir)
+        return proc.stdout
+
+    def test_safe_headers_redacts_cookie_and_authorization(self) -> None:
         headers = [
             (b"Cookie", b"session=secret"),
             (b"Authorization", b"Bearer token"),
@@ -271,14 +282,14 @@ class FeishuPreviewProxyTests(unittest.TestCase):
         self.assertNotIn("Bearer", text)
         self.assertIn("Host=", text)
 
-    def test_cors_headers_are_injected(self):
+    def test_cors_headers_are_injected(self) -> None:
         head = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
         origin = b"https://xcn87k1zyro7.feishu.cn"
         out = feishu_proxy.add_cors_headers(head, origin, [(b"Origin", origin)])
         self.assertIn(b"Access-Control-Allow-Origin: " + origin, out)
         self.assertIn(b"Content-Type: application/json", out)
 
-    def test_rewrite_request_preserves_original_host(self):
+    def test_rewrite_request_preserves_original_host(self) -> None:
         request_line = b"GET /space/api/box/stream/download HTTP/1.1"
         headers = [
             (b"Host", b"internal-api-drive-stream.feishu.cn"),
@@ -288,7 +299,7 @@ class FeishuPreviewProxyTests(unittest.TestCase):
         self.assertIn(b"Host: internal-api-drive-stream.feishu.cn", out)
         self.assertNotIn(b"Proxy-Connection", out)
 
-    def test_forward_response_body_streams_content_length(self):
+    def test_forward_response_body_streams_content_length(self) -> None:
         upstream = feishu_proxy.BufferedSocket(FakeSocket(b"hello"))
         client = RecordingClient()
         feishu_proxy.forward_response_body(
@@ -300,7 +311,7 @@ class FeishuPreviewProxyTests(unittest.TestCase):
         )
         self.assertEqual(client.data, b"hello")
 
-    def test_forward_response_body_streams_chunked(self):
+    def test_forward_response_body_streams_chunked(self) -> None:
         body = b"5\r\nhello\r\n0\r\n\r\n"
         upstream = feishu_proxy.BufferedSocket(FakeSocket(body))
         client = RecordingClient()
@@ -315,11 +326,11 @@ class FeishuPreviewProxyTests(unittest.TestCase):
 
 
 class FakeSocket:
-    def __init__(self, data):
+    def __init__(self, data: bytes) -> None:
         self.data = data
         self.offset = 0
 
-    def recv(self, size):
+    def recv(self, size: int) -> bytes:
         if self.offset >= len(self.data):
             return b""
         end = min(len(self.data), self.offset + size)
@@ -329,14 +340,14 @@ class FakeSocket:
 
 
 class RecordingClient:
-    def __init__(self):
-        self.sent = []
+    def __init__(self) -> None:
+        self.sent: list[bytes] = []
 
-    def sendall(self, data):
+    def sendall(self, data: bytes) -> None:
         self.sent.append(data)
 
     @property
-    def data(self):
+    def data(self) -> bytes:
         return b"".join(self.sent)
 
 

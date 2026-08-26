@@ -6,8 +6,11 @@ Usage:
   python registry_render.py --write    # update sops/REGISTRY.md
   python registry_render.py --check    # exit 1 if REGISTRY.md is stale
 """
+from __future__ import annotations
+
 import os
 import sys
+from collections.abc import Sequence
 
 from registry_lib import (
     COLUMNS,
@@ -38,32 +41,36 @@ HEADER_LABELS = {
 MARKER = "<!-- generated from sops/registry.json; do not edit by hand -->\n"
 
 
-def render_table(entries):
-    rows = [HEADER_LABELS[c] for c in COLUMNS]
+def render_table(entries: Sequence[dict[str, str]]) -> str:
+    rows = [HEADER_LABELS[column] for column in COLUMNS]
     lines = ["## 已分配编号"]
     lines.append("| %s |" % " | ".join(rows))
     lines.append("| %s |" % " | ".join(["---"] * len(rows)))
     for entry in entries:
-        cells = [str(entry.get(c, "")) for c in COLUMNS]
+        cells = [str(entry.get(column, "")) for column in COLUMNS]
         lines.append("| %s |" % " | ".join(cells))
     return "\n".join(lines) + "\n"
 
 
-def replace_section(text, table):
-    lines = text.splitlines(keepends=True)
+def _section_bounds(lines: list[str]) -> tuple[int, int] | None:
     start = None
-    end = None
     for i, line in enumerate(lines):
         stripped = line.strip()
         if start is None and stripped == "## 已分配编号":
             start = i
         elif start is not None and stripped.startswith("## "):
-            end = i
-            break
+            return start, i
     if start is None:
         return None
-    if end is None:
-        end = len(lines)
+    return start, len(lines)
+
+
+def replace_section(text: str, table: str) -> str | None:
+    lines = text.splitlines(keepends=True)
+    bounds = _section_bounds(lines)
+    if bounds is None:
+        return None
+    start, end = bounds
     before = "".join(lines[:start]).replace(MARKER, "")
     after = "".join(lines[end:])
     if not after.startswith(("\n", "\r\n")):
@@ -71,35 +78,48 @@ def replace_section(text, table):
     return before + MARKER + table + after
 
 
-def main():
+def _registry_path() -> str:
+    return os.path.join(ROOT, REGISTRY_REL)
+
+
+def _write_table(entries: Sequence[dict[str, str]]) -> int:
+    table = render_table(entries)
+    with open(_registry_path(), encoding="utf-8") as f:
+        text = f.read()
+    updated = replace_section(text, table)
+    if updated is None:
+        print("[FAIL] REGISTRY.md 未找到「已分配编号」", file=sys.stderr)
+        return 1
+    with open(_registry_path(), "w", encoding="utf-8") as f:
+        f.write(updated)
+    print("OK updated: %s" % REGISTRY_REL)
+    return 0
+
+
+def _check_table(entries: Sequence[dict[str, str]]) -> int:
+    table = render_table(entries)
+    with open(_registry_path(), encoding="utf-8") as f:
+        text = f.read()
+    if table in text:
+        print("OK REGISTRY.md 与 %s 一致" % REGISTRY_JSON_REL)
+        return 0
+    print("[FAIL] REGISTRY.md 已过期，请运行 python registry_render.py --write",
+          file=sys.stderr)
+    return 1
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = argv if argv is not None else sys.argv[1:]
     entries, errors = parse_registry()
     if errors:
         for error in errors:
             print("[FAIL] %s" % error, file=sys.stderr)
         return 1
-    table = render_table(entries)
-    registry_path = os.path.join(ROOT, REGISTRY_REL)
-    if "--write" in sys.argv:
-        with open(registry_path, encoding="utf-8") as f:
-            text = f.read()
-        updated = replace_section(text, table)
-        if updated is None:
-            print("[FAIL] REGISTRY.md 未找到「已分配编号」表", file=sys.stderr)
-            return 1
-        with open(registry_path, "w", encoding="utf-8") as f:
-            f.write(updated)
-        print("OK updated: %s" % REGISTRY_REL)
-        return 0
-    if "--check" in sys.argv:
-        with open(registry_path, encoding="utf-8") as f:
-            text = f.read()
-        if table in text:
-            print("OK REGISTRY.md 与 %s 一致" % REGISTRY_JSON_REL)
-            return 0
-        print("[FAIL] REGISTRY.md 已过期，请运行 python registry_render.py --write",
-              file=sys.stderr)
-        return 1
-    print(table, end="")
+    if "--write" in args:
+        return _write_table(entries)
+    if "--check" in args:
+        return _check_table(entries)
+    print(render_table(entries), end="")
     return 0
 
 

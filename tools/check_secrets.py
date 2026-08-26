@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Sequence
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(SCRIPT_DIR)
@@ -53,12 +54,12 @@ EXCLUDE_PATH_RE = re.compile(
     re.IGNORECASE,
 )
 
-COMPILED = [(re.compile(p), label) for p, label in SECRET_PATTERNS]
+COMPILED = [(re.compile(pattern), label) for pattern, label in SECRET_PATTERNS]
 
 
-def git(args):
+def git(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["git", "-C", ROOT] + args,
+        ["git", "-C", ROOT] + list(args),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -66,42 +67,33 @@ def git(args):
     )
 
 
-def collect_paths(staged):
+def collect_paths(staged: bool) -> list[str]:
     if staged:
-        r = git(["diff", "--cached", "--name-only", "--diff-filter=ACM"])
+        result = git(["diff", "--cached", "--name-only", "--diff-filter=ACM"])
     else:
-        r = git(["ls-files"])
-    if r.returncode != 0:
-        print(r.stderr.strip())
+        result = git(["ls-files"])
+    if result.returncode != 0:
+        print(result.stderr.strip())
         sys.exit(2)
-    return [p for p in r.stdout.splitlines() if p]
+    return [p for p in result.stdout.splitlines() if p]
 
 
-def sensitive_filename(path):
+def sensitive_filename(path: str) -> bool:
     base = os.path.basename(path).lower()
     if base in {s.lower() for s in SENSITIVE_FILENAMES}:
         return True
     return bool(SENSITIVE_FILENAME_RE.search(base))
 
 
-def scan_file(path):
-    abspath = os.path.join(ROOT, path)
-    if not os.path.isfile(abspath):
-        return []
+def _decode_content(data: bytes) -> str:
     try:
-        with open(abspath, "rb") as f:
-            data = f.read()
-    except OSError:
-        return []
-    if b"\x00" in data[:8192]:
-        return [("binary", "sensitive filename")] if sensitive_filename(path) else []
-    try:
-        text = data.decode("utf-8")
+        return data.decode("utf-8")
     except UnicodeDecodeError:
-        text = data.decode("latin-1", errors="replace")
+        return data.decode("latin-1", errors="replace")
+
+
+def _scan_lines(text: str) -> list[tuple[int, str]]:
     hits = []
-    if sensitive_filename(path):
-        hits.append((0, "sensitive filename"))
     for line_no, line in enumerate(text.splitlines(), 1):
         for regex, label in COMPILED:
             if regex.search(line):
@@ -110,31 +102,66 @@ def scan_file(path):
     return hits
 
 
-def main():
-    staged = "--staged" in sys.argv
-    if not staged and "--all" not in sys.argv:
-        print(__doc__)
-        sys.exit(2)
+def scan_file(path: str) -> list[tuple[int, str]]:
+    abspath = os.path.join(ROOT, path)
+    if not os.path.isfile(abspath):
+        return []
+    with open(abspath, "rb") as f:
+        data = f.read()
+    if b"\x00" in data[:8192]:
+        return [(0, "sensitive filename (binary)")] if sensitive_filename(path) else []
+    hits = []
+    if sensitive_filename(path):
+        hits.append((0, "sensitive filename"))
+    hits.extend(_scan_lines(_decode_content(data)))
+    return hits
 
-    paths = collect_paths(staged)
+
+def _print_hits(path: str, hits: Sequence[tuple[int | str, str]]) -> int:
+    for line_no, label in hits:
+        if line_no:
+            print("[SECRET] %s:%d: %s" % (path, line_no, label))
+        else:
+            print("[SECRET] %s: %s" % (path, label))
+    return len(hits)
+
+
+def _parse_mode(argv: Sequence[str]) -> bool:
+    if "--staged" in argv:
+        return True
+    if "--all" in argv:
+        return False
+    print(__doc__)
+    sys.exit(2)
+
+
+def _scan_paths(paths: Sequence[str]) -> int:
     issues = 0
     for path in paths:
         norm = path.replace(os.sep, "/")
         if EXCLUDE_PATH_RE.search(norm):
             continue
-        hits = scan_file(norm)
-        for line_no, label in hits:
+        try:
+            hits = scan_file(norm)
+        except OSError as exc:
             issues += 1
-            if line_no:
-                print("[SECRET] %s:%d: %s" % (norm, line_no, label))
-            else:
-                print("[SECRET] %s: %s" % (norm, label))
+            print("[FAIL] %s: 无法读取文件: %s" % (norm, exc))
+            continue
+        issues += _print_hits(norm, hits)
+    return issues
 
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = argv if argv is not None else sys.argv[1:]
+    staged = _parse_mode(args)
+    paths = collect_paths(staged)
+    issues = _scan_paths(paths)
     if issues:
         print("发现 %d 个疑似敏感信息，禁止提交/发布" % issues)
-        sys.exit(1)
+        return 1
     print("OK: 未发现高置信敏感信息" if paths else "OK: 无待扫描文件")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

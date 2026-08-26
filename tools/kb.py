@@ -18,13 +18,28 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TOOLS = HERE
 
+_PYTHON_SCRIPTS = {
+    "check": "check_docs.py",
+    "secrets": "check_secrets.py",
+    "manifest": "registry_manifest.py",
+    "registry-render": "registry_render.py",
+    "cleanup": "cleanup_90_md.py",
+}
 
-def find_bash():
+_SHELL_SCRIPTS = {
+    "publish": "publish.sh",
+    "backup": "backup_commit.sh",
+    "auth": "check_git_auth.sh",
+}
+
+
+def find_bash() -> str | None:
     exe = shutil.which("bash")
     if exe:
         return exe
@@ -40,53 +55,67 @@ def find_bash():
     return None
 
 
-def run(args):
+def run(args: Sequence[str]) -> int:
     return subprocess.run(args, cwd=ROOT).returncode
 
 
-def usage():
-    print(__doc__.strip())
-    return 2
-
-
-def main(argv):
-    if not argv:
-        return usage()
-    cmd, rest = argv[0], argv[1:]
-    py = sys.executable
-
-    if cmd == "stage":
-        print(TOOLS)
-        return 0
-    if cmd == "check":
-        return run([py, os.path.join(TOOLS, "check_docs.py")] + rest)
-    if cmd == "secrets":
-        return run([py, os.path.join(TOOLS, "check_secrets.py")] + rest)
-    if cmd == "manifest":
-        return run([py, os.path.join(TOOLS, "registry_manifest.py")])
-    if cmd == "registry-render":
-        return run([py, os.path.join(TOOLS, "registry_render.py")] + rest)
-    if cmd == "cleanup":
-        return run([py, os.path.join(TOOLS, "cleanup_90_md.py")] + rest)
-    if cmd == "build":
-        if len(rest) < 2:
-            return usage()
-        return run([py, os.path.join(TOOLS, "sop_to_docx_stdlib.py")] + rest)
-    if cmd == "test":
-        return run([py, os.path.join(TOOLS, "test_pipeline.py")] + rest)
-
+def run_test_suite(rest: Sequence[str]) -> int:
+    for name in ("test_pipeline.py", "test_check_secrets.py"):
+        rc = run([sys.executable, os.path.join(TOOLS, name)] + list(rest))
+        if rc != 0:
+            return rc
     bash = find_bash()
     if bash is None:
         return 2
-    if cmd == "publish":
-        return run([bash, os.path.join(TOOLS, "publish.sh")] + rest)
-    if cmd == "backup":
-        return run([bash, os.path.join(TOOLS, "backup_commit.sh")] + rest)
-    if cmd == "auth":
-        return run([bash, os.path.join(TOOLS, "check_git_auth.sh")] + rest)
+    return run([bash, os.path.join(TOOLS, "test_check_git_auth.sh")])
 
+
+def run_python_script(cmd: str, rest: Sequence[str]) -> int | None:
+    if cmd == "test":
+        return run_test_suite(rest)
+    if cmd == "build":
+        if len(rest) < 2:
+            return None
+        return run([sys.executable,
+                    os.path.join(TOOLS, "sop_to_docx_stdlib.py")] + list(rest))
+    script = _PYTHON_SCRIPTS.get(cmd)
+    if script is None:
+        return None
+    return run([sys.executable, os.path.join(TOOLS, script)] + list(rest))
+
+
+def run_shell_script(cmd: str, rest: Sequence[str]) -> int | None:
+    script = _SHELL_SCRIPTS.get(cmd)
+    if script is None:
+        return None
+    bash = find_bash()
+    if bash is None:
+        return 2
+    return run([bash, os.path.join(TOOLS, script)] + list(rest))
+
+
+def main(argv: list[str]) -> int:
+    if not argv:
+        return usage()
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "stage":
+        print(TOOLS)
+        return 0
+    if cmd == "build" and len(rest) < 2:
+        return usage()
+    rc = run_python_script(cmd, rest)
+    if rc is not None:
+        return rc
+    rc = run_shell_script(cmd, rest)
+    if rc is not None:
+        return rc
     print("unknown command: %s" % cmd, file=sys.stderr)
     return usage()
+
+
+def usage() -> int:
+    print(__doc__.strip())
+    return 2
 
 
 if __name__ == "__main__":

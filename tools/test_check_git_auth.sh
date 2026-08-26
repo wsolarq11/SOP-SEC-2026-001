@@ -6,18 +6,46 @@
 #   1. global url.*.insteadOf 内嵌 GitHub token
 #   2. http.https://github.com/.extraheader
 #   3. ~/.git-credentials 残留 GitHub 凭据
-# 最后用当前真实 gh 登录态跑一次干净检查。
+# 最后用 fake gh 模拟登录态，验证干净状态放行，不依赖本机 gh 配置。
 # =============================================================
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd -W)"
+normalize_path() {
+  local p="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$p"
+  else
+    printf '%s\n' "$p"
+  fi
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(normalize_path "$SCRIPT_DIR")"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT="$(normalize_path "$ROOT")"
 SCRIPT="$SCRIPT_DIR/check_git_auth.sh"
 TMP="$(mktemp -d)"
 HOME_TMP="$TMP/home"
 GLOBAL_TMP="$TMP/global"
-mkdir -p "$HOME_TMP"
+FAKE_BIN="$TMP/bin"
+mkdir -p "$HOME_TMP" "$FAKE_BIN"
 : > "$GLOBAL_TMP"
+
+cat > "$FAKE_BIN/gh" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "auth" ] && [ "${2:-}" = "status" ]; then
+  exit 0
+fi
+if [ "${1:-}" = "auth" ] && [ "${2:-}" = "git-credential" ] && [ "${3:-}" = "get" ]; then
+  printf 'protocol=https\nhost=github.com\nusername=fake\npassword=fake-token\n\n'
+  exit 0
+fi
+if [ "${1:-}" = "auth" ] && [ "${2:-}" = "setup-git" ]; then
+  exit 0
+fi
+exit 127
+EOF
+chmod +x "$FAKE_BIN/gh"
 
 cleanup() {
   rm -rf "$TMP"
@@ -26,9 +54,10 @@ trap cleanup EXIT
 
 export HOME="$HOME_TMP"
 export GIT_CONFIG_GLOBAL="$GLOBAL_TMP"
+export PATH="$FAKE_BIN:$PATH"
 
 fail_test() {
-  echo "❌ $*" >&2
+  echo "FAIL: $*" >&2
   exit 1
 }
 
@@ -39,7 +68,7 @@ expect_fail() {
   if [ "$code" = 0 ]; then
     fail_test "守卫未拦截: $desc"
   fi
-  echo "✅ 守卫拦截: $desc"
+  echo "OK: 守卫拦截: $desc"
 }
 
 git config --global "url.https://user:ghp_bad@github.com/.insteadof" "https://github.com/"
@@ -56,4 +85,4 @@ rm -f "$HOME/.git-credentials"
 
 bash "$SCRIPT" >/dev/null 2>&1 || fail_test "干净状态未通过"
 
-echo "✅ 全部通过：check_git_auth.sh 可拦截旧凭据，干净状态放行"
+echo "OK: check_git_auth.sh 可拦截旧凭据，干净状态放行"

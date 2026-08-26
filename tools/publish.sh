@@ -65,7 +65,7 @@ while IFS= read -r line; do
   MANIFEST+=("$line")
 done < <(PYTHONIOENCODING=utf-8 "$PY" "$MANIFEST_GEN" | tr -d "\r") || { echo "registry manifest 生成失败，中止"; exit 1; }
 if [ "${#MANIFEST[@]}" -eq 0 ]; then
-  echo "❌ registry.json 未生成任何发布条目，中止"
+  echo "[FAIL] registry.json 未生成任何发布条目，中止"
   exit 1
 fi
 printf '  %s
@@ -87,7 +87,7 @@ fi
 # 读取上传 token（gitignore 忽略，不入库）
 declare -A DOCTOK
 if [ ! -f "$ROOT/.publish-tokens" ]; then
-  echo "❌ 缺少 $ROOT/.publish-tokens（上传 token 映射），无法发布"
+  echo "[FAIL] 缺少 $ROOT/.publish-tokens（上传 token 映射），无法发布"
   exit 1
 fi
 while IFS='|' read -r mdrel mdtok docxtok; do
@@ -105,7 +105,7 @@ for entry in "${MANIFEST[@]}"; do
     continue
   fi
   if [ "$docxname" != "NONE" ] && { [ -z "${DOCTOK[$mdrel]:-}" ] || [ "${DOCTOK[$mdrel]}" = "NONE" ]; }; then
-    echo "  ❌ 缺少 docx 上传 token: $mdrel"
+    echo "  [FAIL] 缺少 docx 上传 token: $mdrel"
     FAIL=$((FAIL+1))
   fi
 done
@@ -113,7 +113,7 @@ if [ "$FAIL" -gt 0 ]; then
   echo "  token 缺失 $FAIL 项，请补充 .publish-tokens 后重跑"
   exit 1
 else
-  echo "  ✅ 全部清单条目均有上传 token"
+  echo "  [OK] 全部清单条目均有上传 token"
 fi
 
 echo
@@ -127,18 +127,20 @@ for entry in "${MANIFEST[@]}"; do
   fi
   echo "--- $mdrel ---"
   if [ "$docxname" = "NONE" ]; then
-    echo "  ✅ 仅仓库源码（不生成/上传 docx）"
+    echo "  [OK] 仅仓库源码（不生成/上传 docx）"
     BUILT_OK["$mdrel"]=1
     OK=$((OK+1))
     continue
   fi
   if [ ! -f "$ROOT/$mdrel" ]; then
-    echo "  ❌ md 源缺失: $mdrel"; FAIL=$((FAIL+1)); continue
+    echo "  [FAIL] md 源缺失: $mdrel"; FAIL=$((FAIL+1)); continue
   fi
-  if ! "$PY" "$CONV" "$ROOT/$mdrel" "$PUB/$docxname" >/dev/null 2>&1; then
-    echo "  ❌ docx 生成失败: $docxname"; FAIL=$((FAIL+1)); continue
+  if ! GENERATOR_OUTPUT="$("$PY" "$CONV" "$ROOT/$mdrel" "$PUB/$docxname" 2>&1)"; then
+    echo "  [FAIL] docx 生成失败: $docxname"
+    printf '%s\n' "$GENERATOR_OUTPUT" | sed 's/^/    /'
+    FAIL=$((FAIL+1)); continue
   fi
-  echo "  ✅ docx 生成: $docxname"
+  echo "  [OK] docx 生成: $docxname"
   BUILT_OK["$mdrel"]=1
   OK=$((OK+1))
 done
@@ -173,14 +175,14 @@ for entry in "${MANIFEST[@]}"; do
       RETURNED_TOKEN="$(printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" token)" || RETURNED_TOKEN=""
       RETURNED_TOKEN="${RETURNED_TOKEN%$'\r'}"
       if [ "$RETURNED_TOKEN" = "${DOCTOK[$mdrel]}" ]; then
-        echo "  ✅ docx 上传: $docxname"
+        echo "  [OK] docx 上传: $docxname"
       else
-        echo "  ❌ docx 上传后 file_token 不一致: $docxname"
+        echo "  [FAIL] docx 上传后 file_token 不一致: $docxname"
         printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" message || true
         FAIL=$((FAIL+1))
       fi
     else
-      echo "  ❌ docx 上传失败: $docxname"
+      echo "  [FAIL] docx 上传失败: $docxname"
       printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" message || true
       FAIL=$((FAIL+1))
     fi
@@ -190,8 +192,8 @@ done
 echo
 echo "== [4/4] 完成 =="
 if [ "$FAIL" = "0" ]; then
-  echo "✅ 全部发布成功（$OK 项）"
+  echo "[OK] 全部发布成功（$OK 项）"
 else
-  echo "⚠️ $FAIL 项失败，请检查后重跑（幂等，安全重试）"
+  echo "[WARN] $FAIL 项失败，请检查后重跑（幂等，安全重试）"
   exit 1
 fi

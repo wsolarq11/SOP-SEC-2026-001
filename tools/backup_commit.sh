@@ -26,8 +26,19 @@
 # =============================================================
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd -W)"
+normalize_path() {
+  local p="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$p"
+  else
+    printf '%s\n' "$p"
+  fi
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(normalize_path "$SCRIPT_DIR")"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT="$(normalize_path "$ROOT")"
 PY="${PY:-python}"
 LARK_JSON="$SCRIPT_DIR/lark_json.py"
 if [ -z "${PUB:-}" ]; then
@@ -126,56 +137,59 @@ if ! command -v lark-cli >/dev/null 2>&1; then
   die "未找到 lark-cli，请确认其已加入 PATH" || { [ "$BACKUP_MODE" = "soft" ] || exit 1; }
 fi
 
+read_token_line() {
+  local line="$1" key rest
+  line="${line%$'\r'}"
+  key="${line%%|*}"
+  rest="${line#*|}"
+  if [ "$key" = "BACKUP_BUNDLE" ]; then
+    TOKEN="${rest%%|*}"
+  elif [ "$key" = "BACKUP_FOLDER" ]; then
+    SAVED_FOLDER_TOKEN="${rest%%|*}"
+  elif [ "$key" = "BACKUP_WIKI" ]; then
+    SAVED_WIKI_TOKEN="${rest%%|*}"
+  fi
+}
+
 read_backup_token() {
   TOKEN=""
   [ -f "$TOKEN_FILE" ] || return 0
   while IFS= read -r line; do
-    line="${line%$'\r'}"
     case "$line" in
       \#*|"") continue ;;
     esac
-    key="${line%%|*}"
-    if [ "$key" = "BACKUP_BUNDLE" ]; then
-      rest="${line#*|}"
-      TOKEN="${rest%%|*}"
-    elif [ "$key" = "BACKUP_FOLDER" ]; then
-      rest="${line#*|}"
-      SAVED_FOLDER_TOKEN="${rest%%|*}"
-    elif [ "$key" = "BACKUP_WIKI" ]; then
-      rest="${line#*|}"
-      SAVED_WIKI_TOKEN="${rest%%|*}"
-    fi
+    read_token_line "$line"
   done < "$TOKEN_FILE"
 }
 
+append_token_line() {
+  local line="$1" key new_token="$2" new_folder="${3:-}" new_wiki="${4:-}"
+  line="${line%$'\r'}"
+  key="${line%%|*}"
+  if [ "$key" = "BACKUP_BUNDLE" ]; then
+    printf 'BACKUP_BUNDLE|%s|NONE\n' "$new_token"
+  elif [ "$key" = "BACKUP_FOLDER" ] && [ -n "$new_folder" ]; then
+    printf 'BACKUP_FOLDER|%s|NONE\n' "$new_folder"
+  elif [ "$key" = "BACKUP_WIKI" ] && [ -n "$new_wiki" ]; then
+    printf 'BACKUP_WIKI|%s|NONE\n' "$new_wiki"
+  else
+    printf '%s\n' "$line"
+  fi
+}
+
 save_backup_token() {
-  local new_token="$1" new_folder="${2:-}" new_wiki="${3:-}" tmp="$TOKEN_FILE.tmp" found_bundle=0 found_folder=0 found_wiki=0
+  local new_token="$1" new_folder="${2:-}" new_wiki="${3:-}" tmp="$TOKEN_FILE.tmp"
   : > "$tmp"
   if [ -f "$TOKEN_FILE" ]; then
     while IFS= read -r line; do
-      line="${line%$'\r'}"
-      key="${line%%|*}"
-      if [ "$key" = "BACKUP_BUNDLE" ]; then
-        printf 'BACKUP_BUNDLE|%s|NONE\n' "$new_token"
-        found_bundle=1
-      elif [ "$key" = "BACKUP_FOLDER" ] && [ -n "$new_folder" ]; then
-        printf 'BACKUP_FOLDER|%s|NONE\n' "$new_folder"
-        found_folder=1
-      elif [ "$key" = "BACKUP_WIKI" ] && [ -n "$new_wiki" ]; then
-        printf 'BACKUP_WIKI|%s|NONE\n' "$new_wiki"
-        found_wiki=1
-      else
-        printf '%s\n' "$line"
-      fi
+      append_token_line "$line" "$new_token" "$new_folder" "$new_wiki"
     done < "$TOKEN_FILE" >> "$tmp"
   fi
-  if [ "$found_bundle" = 0 ]; then
-    printf 'BACKUP_BUNDLE|%s|NONE\n' "$new_token" >> "$tmp"
-  fi
-  if [ -n "$new_folder" ] && [ "$found_folder" = 0 ]; then
+  grep -q '^BACKUP_BUNDLE|' "$tmp" || printf 'BACKUP_BUNDLE|%s|NONE\n' "$new_token" >> "$tmp"
+  if [ -n "$new_folder" ] && ! grep -q '^BACKUP_FOLDER|' "$tmp"; then
     printf 'BACKUP_FOLDER|%s|NONE\n' "$new_folder" >> "$tmp"
   fi
-  if [ -n "$new_wiki" ] && [ "$found_wiki" = 0 ]; then
+  if [ -n "$new_wiki" ] && ! grep -q '^BACKUP_WIKI|' "$tmp"; then
     printf 'BACKUP_WIKI|%s|NONE\n' "$new_wiki" >> "$tmp"
   fi
   mv "$tmp" "$TOKEN_FILE"
@@ -219,6 +233,42 @@ upload_bundle() {
   fi
 }
 
+first_upload_output() {
+  if [ -n "$FOLDER_TOKEN" ]; then
+    OUT="$(cd "$BACKUP_DIR" && lark-cli drive +upload --file "./$NAME" --folder-token "$FOLDER_TOKEN" --as user --format json 2>&1)"
+  elif [ -n "$WIKI_TOKEN" ]; then
+    OUT="$(cd "$BACKUP_DIR" && lark-cli drive +upload --file "./$NAME" --wiki-token "$WIKI_TOKEN" --as user --format json 2>&1)"
+  else
+    OUT="$(cd "$BACKUP_DIR" && lark-cli drive +upload --file "./$NAME" --as user --format json 2>&1)"
+  fi
+}
+
+init_upload_once() {
+  local token
+  say "首次上传 bundle 到飞书云盘并登记 token"
+  first_upload_output
+  if ! printf '%s\n' "$OUT" | "$PY" "$LARK_JSON" ok; then
+    say "lark-cli 输出:"
+    say "$OUT"
+    die "首次上传失败" || return 1
+  fi
+  if ! token="$(printf '%s\n' "$OUT" | "$PY" "$LARK_JSON" token)"; then
+    say "lark-cli 输出:"
+    say "$OUT"
+    die "未能从上传结果解析 file_token" || return 1
+  fi
+  token="${token%$'\r'}"
+  save_backup_token "$token" "$FOLDER_TOKEN" "$WIKI_TOKEN"
+  TOKEN="$token"
+  say "已登记 BACKUP_BUNDLE token"
+}
+
+run_existing_token() {
+  say "BACKUP_BUNDLE token 已登记，按普通模式同名覆盖"
+  build_bundle || return 1
+  upload_bundle "$TOKEN" || return 1
+}
+
 run_init() {
   if [ -n "$FOLDER_TOKEN" ] && [ -n "$WIKI_TOKEN" ]; then
     die "--folder-token 与 --wiki-token 不能同时使用" || return 1
@@ -231,35 +281,11 @@ run_init() {
     WIKI_TOKEN="$SAVED_WIKI_TOKEN"
   fi
   if [ -n "$TOKEN" ]; then
-    say "BACKUP_BUNDLE token 已登记，按普通模式同名覆盖"
-    build_bundle || return 1
-    upload_bundle "$TOKEN" || return 1
+    run_existing_token || return 1
     return 0
   fi
   build_bundle || return 1
-  local out token
-  say "首次上传 bundle 到飞书云盘并登记 token"
-  if [ -n "$FOLDER_TOKEN" ]; then
-    out="$(cd "$BACKUP_DIR" && lark-cli drive +upload --file "./$NAME" --folder-token "$FOLDER_TOKEN" --as user --format json 2>&1)"
-  elif [ -n "$WIKI_TOKEN" ]; then
-    out="$(cd "$BACKUP_DIR" && lark-cli drive +upload --file "./$NAME" --wiki-token "$WIKI_TOKEN" --as user --format json 2>&1)"
-  else
-    out="$(cd "$BACKUP_DIR" && lark-cli drive +upload --file "./$NAME" --as user --format json 2>&1)"
-  fi
-  if ! printf '%s\n' "$out" | "$PY" "$LARK_JSON" ok; then
-    say "lark-cli 输出:"
-    say "$out"
-    die "首次上传失败" || return 1
-  fi
-  if ! token="$(printf '%s\n' "$out" | "$PY" "$LARK_JSON" token)"; then
-    say "lark-cli 输出:"
-    say "$out"
-    die "未能从上传结果解析 file_token" || return 1
-  fi
-  token="${token%$'\r'}"
-  save_backup_token "$token" "$FOLDER_TOKEN" "$WIKI_TOKEN"
-  TOKEN="$token"
-  say "已登记 BACKUP_BUNDLE token"
+  init_upload_once || return 1
   upload_bundle "$TOKEN" || return 1
 }
 

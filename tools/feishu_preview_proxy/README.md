@@ -90,7 +90,7 @@ powershell -ExecutionPolicy Bypass -File .\stop.ps1 -RestoreSystem
 python .\feishu_mitm_proxy.py --setup --base .\run --config .\config.json
 ```
 
-`--setup` 会重新生成 PAC，并在缺少证书时生成 CA/叶子证书。证书、私钥、日志、浏览器 profile 都只写在 `run/` 下，已被 `.gitignore` 排除，不会提交进仓库。
+`--setup` 会重新生成 PAC，并在缺少证书或 `routes` 变化时重建叶子证书（CA 保持稳定）。证书、私钥、日志、浏览器 profile 都只写在 `run/` 下，已被 `.gitignore` 排除，不会提交进仓库。
 
 ## 卸载
 

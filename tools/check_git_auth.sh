@@ -18,8 +18,19 @@
 # =============================================================
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W)"
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd -W)"
+normalize_path() {
+  local p="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$p"
+  else
+    printf '%s\n' "$p"
+  fi
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(normalize_path "$SCRIPT_DIR")"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT="$(normalize_path "$ROOT")"
 GH_HOST="github.com"
 FIX=0
 NETWORK=0
@@ -37,7 +48,7 @@ mask() {
 }
 
 fail() {
-  echo "❌ $*" >&2
+  echo "FAIL: $*" >&2
   exit 1
 }
 
@@ -169,4 +180,4 @@ if [ "$NETWORK" = 1 ]; then
   check_network
 fi
 
-echo "✅ GitHub 凭据检查通过（无旧 token 残留）"
+echo "OK: GitHub 凭据检查通过（无旧 token 残留）"
