@@ -23,13 +23,13 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 
 AGENTS.md — SOP 知识库工作区指南
-本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-25（发布语义统一为 Draft 不发布、Approved 才发布、Retired 注销；GitHub Actions runner 暂不可用，本地 check/test/publish 可用）。
+本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-26（仓库已改 public，GitHub Actions 恢复并全绿；发布语义仍为 Draft 不发布、Approved 才发布、Retired 注销）。
 
 一、仓库定位：源 vs 临时区
 位置	角色	git
-本仓库（当前工作区）	真相源：md 源、生成器、registry.json/REGISTRY.md	✅ 跟踪（私有 GitHub remote + 飞书 bundle 双备份）
+本仓库（当前工作区）	真相源：md 源、生成器、registry.json/REGISTRY.md	✅ 跟踪（GitHub remote + 飞书 bundle 双备份）
 %TEMP%\sop-exports\	临时产物区：docx 预览迭代、publish\ 可重建发布快照、backup\ 可重建仓库 bundle（上传 token 见仓库根 .publish-tokens，不入库）	❌ 无 .git，也不是任何仓库的工作树
-单向流水线：git 源 md → 生成器 → docx → %TEMP%\sop-exports\publish\（发布文件）→ 上传飞书云盘（文件挂载）。GitHub 私有 remote 负责代码/历史同步，Actions 负责 push 后自动校验与构建。
+单向流水线：git 源 md → 生成器 → docx → %TEMP%\sop-exports\publish\（发布文件）→ 上传飞书云盘（文件挂载）。GitHub remote 负责代码/历史同步，Actions 负责 push 后自动校验与构建。
 
 二、仓库结构
 sops/ — md 源文件 + registry.json（机器唯一权威）+ REGISTRY.md（生成审计视图，见 §三）
@@ -62,7 +62,7 @@ IMS 层级：L1 方针 / L2 跨部门程序 / L3 作业指导书+记录
 发布契约（2026-08-17 起；2026-08-21 起机器源改为 registry.json）：publish.sh 的构建/发布清单由 sops/registry.json 自动生成，REGISTRY.md 由 registry_render.py 同步审计表；不再维护脚本内 manifest；docx 输出名 = 源文件 basename 的 .md 换成 .docx；状态语义统一为 Draft 不发布、Approved 才发布、Retired 注销不发布；缺 token 即失败
 md front matter schema（新格式，faa3c44 起连坐升级；2026-08-18 收敛）：必填 document_id / title / category / doc_type / version / status / author / approver；可选 effective_date（生效日期，ISO 9001:2015 7.5.2 a 日期要素）；已废弃勿再用：doc_number / domain / owner / level / review_due / last_reviewed / related_standards（层级与关联标准以 sops/registry.json 为唯一权威）
 四、知识库承载模式（2026-08-14 起 = 文件挂载）
-每文档一个飞书节点：·成品（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走同名覆盖（file token 不变，节点不失效）。上传 token 见仓库根 .publish-tokens（gitignore 忽略，不入库）；8/13 曾使用临时区 *_create.json 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：https://github.com/wsolarq11/SOP-SEC-2026-001.git（私有，master）；.github/workflows/publish.yml 在 push 后自动跑 check_docs.py + docx 构建，并还原 PUBLISH_TOKENS_B64 secret；LARK_APP_ID/LARK_APP_SECRET 已配置为 GitHub secrets，CI 以 bot 身份自动上传；应用 cli_aaf1518a8c789bd5 已对现有 docx 成品文件获得 full_access 协作者权限。仓库备份登记 BACKUP_BUNDLE|<bundle file_token>|NONE、BACKUP_FOLDER|<90 目录 folder_token>|NONE、BACKUP_WIKI|<90 目录 wiki node_token>|NONE，由 backup_commit.sh 读写。GitHub 与飞书 bundle 为主副双备份，两者都必须成功；post-commit/pre-push hook 失败会让 git commit/push 显式失败。GitHub 本机凭据统一走 `gh auth login`，禁止把 token 写进 remote URL、`.git/config`、`~/.git-credentials` 或 `credential.helper store`；`backup_commit.sh --install` 会自动安装 `check_git_auth.sh` 守卫，pre-push 先做网络实测再上传 bundle。
+每文档一个飞书节点：·成品（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走同名覆盖（file token 不变，节点不失效）。上传 token 见仓库根 .publish-tokens（gitignore 忽略，不入库）；8/13 曾使用临时区 *_create.json 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：https://github.com/wsolarq11/SOP-SEC-2026-001.git（public，master）；.github/workflows/publish.yml 在 push 后自动跑 check_docs.py + docx 构建，并还原 PUBLISH_TOKENS_B64 secret；LARK_APP_ID/LARK_APP_SECRET 已配置为 GitHub secrets，CI 以 bot 身份自动上传；应用 cli_aaf1518a8c789bd5 已对现有 docx 成品文件获得 full_access 协作者权限。仓库备份登记 BACKUP_BUNDLE|<bundle file_token>|NONE、BACKUP_FOLDER|<90 目录 folder_token>|NONE、BACKUP_WIKI|<90 目录 wiki node_token>|NONE，由 backup_commit.sh 读写。GitHub 与飞书 bundle 为主副双备份，两者都必须成功；post-commit/pre-push hook 失败会让 git commit/push 显式失败。GitHub 本机凭据统一走 `gh auth login`，禁止把 token 写进 remote URL、`.git/config`、`~/.git-credentials` 或 `credential.helper store`；`backup_commit.sh --install` 会自动安装 `check_git_auth.sh` 守卫，pre-push 先做网络实测再上传 bundle。
 
 五、%TEMP%\sop-exports 的真相与纪律
 为什么放 %TEMP%：本机文件监视器会把写进工作区/个人目录的 .docx 替换成损坏桩（.gitignore 注释为据；实测工作区及上级目录零 docx，docx 只存在于 %TEMP%）。docx 生成与发布文件全放这里，用完即弃
@@ -70,8 +70,8 @@ publish\ 是可重建快照，不是镜像：临时区可能随时被清空，pu
 临时区路径由 publish.sh 管理：当前默认 %TEMP%\sop-exports\publish，可用 PUB 环境变量覆盖；换账号/机器时不要假设该目录或旧文件仍存在
 backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次提交和推送前重建并同名覆盖上传到飞书 90 目录（BACKUP_WIKI Wiki 节点），上传失败则 commit/push 显式失败；默认 %TEMP%\sop-exports\backup，可用 BACKUP_DIR 覆盖；本地开发可用 KB_BACKUP_MODE=soft（失败不阻断）或 KB_BACKUP_MODE=skip（跳过备份），默认 hard 保持强制双备份
 清掉 %TEMP% 的后果：docx 可由生成器重建、md 可从 git 恢复；飞书上传 token 与 bot 凭据在仓库外，需由外部保留
-六、当前状态（2026-08-25）
-系统说明已统一移入 `sops/SOP-通用-系统说明.md`，源文件不再放在仓库根。GitHub Actions 当前 job 创建后立即失败：`runner_id: 0`、无步骤日志，极简 workflow 同样失败；症状与私有仓库 Actions 分钟配额耗尽一致，需在 GitHub 计费/用量页确认，当前网络未能通过 API 核验。仓库侧无可修代码；本地 `python tools/kb.py check`、`test`、`publish --dry-run` 是当前可用验证入口。活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
+六、当前状态（2026-08-26）
+系统说明已统一移入 `sops/SOP-通用-系统说明.md`，源文件不再放在仓库根。仓库已改为 public：此前 Actions job 创建后立即失败（`runner_id: 0`、无步骤日志、极简 workflow 同样失败），原因是私有仓库 Actions 分钟配额耗尽；改 public 后 Toolchain Tests 与 SOP Publish Pipeline 均已成功。发布入口仍是 `python tools/kb.py publish`，本机 `check`、`test`、`publish --dry-run` 继续可用。活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
 七、标准工作流
 仓库备份初始化（一次性）：python tools/kb.py backup --install，再 python tools/kb.py backup --init --wiki-token <90目录wiki node_token>
 
@@ -79,7 +79,7 @@ backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次�
 跑 `python tools/kb.py check` 健康检查（front matter 完整性 + registry.json 契约一致性）
 构建验证：python tools/kb.py publish --dry-run，输出到 %TEMP%\sop-exports\publish\（docx 不入库）
 git 提交 md 源与生成器改动（docx 一律不入库；pre-commit 先跑 `python tools/kb.py secrets --staged`，post-commit hook 必须完成飞书 bundle 上传，失败时 git commit 显式报错）
-git push origin master：pre-push hook 先跑 `python tools/kb.py secrets --all`，再跑 `python tools/kb.py auth --network` 清旧凭据并实测 remote，再强制飞书 bundle 上传成功，最后推送 GitHub；GitHub Actions 恢复后会自动跑敏感扫描、健康检查、docx 构建，并以 bot 身份自动上传飞书；runner 不可用期间以本机 `python tools/kb.py publish` 作为发布兜底
+git push origin master：pre-push hook 先跑 `python tools/kb.py secrets --all`，再跑 `python tools/kb.py auth --network` 清旧凭据并实测 remote，再强制飞书 bundle 上传成功，最后推送 GitHub；GitHub Actions 随后自动跑敏感扫描、健康检查、docx 构建，并以 bot 身份自动上传飞书；本机 `python tools/kb.py publish` 仍可作为发布兜底
 本地上传飞书兜底：python tools/kb.py publish（仅成品 docx 同名覆盖对应节点；md 不再单独上传）
 一次性清理 90 目录旧 md：python tools/kb.py cleanup --dry-run 审计后，再 --yes 执行删除
 八、禁忌
