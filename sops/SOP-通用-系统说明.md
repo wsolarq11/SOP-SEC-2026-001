@@ -3,7 +3,7 @@ document_id: REF-GEN-2026-001
 title: SOP与规范库 · 系统说明
 category: GEN
 doc_type: reference
-version: 1.4
+version: 1.5
 status: Draft
 author: 段天俊
 approver: 待定
@@ -57,7 +57,7 @@ effective_date: 待定
 - 更新：修改源文档并升版本，同步 `sops/registry.json` 与版本修订记录，提交 git，再按“五、如何发布文档”发布。
 
 ## 五、如何发布文档
-运行 `python tools/kb.py publish --dry-run` 验证，或运行 `python tools/kb.py publish` 发布已 `Approved` 文档。发布管线从 git 源重新生成 docx 到 `%TEMP%\sop-exports\publish\`，再以成品 docx 同名覆盖上传飞书；md 源不单独上传，源码由 GitHub 私有 remote 与 git bundle 备份。
+运行 `python tools/kb.py publish --dry-run` 验证，或运行 `python tools/kb.py publish` 发布 `Draft`/`Approved` 文档。发布管线从 git 源重新生成 docx 到 `%TEMP%\sop-exports\publish\`，再以成品 docx 同名覆盖上传飞书；md 源不单独上传，源码由 GitHub 私有 remote 与 git bundle 备份。`Draft` 发布不代表已签批，`approver` / `effective_date` 在真实签批后填写。
 
 ## 版本修订记录
 | 版本 | 日期 | 说明 |
@@ -67,3 +67,4 @@ effective_date: 待定
 | 1.2 | 2026-08-13 | 命名规范改为 ISO 语义式：SOP-<域名>-<年>-<序号>，新增域名代码表与 REGISTRY 编号索引 |
 | 1.3 | 2026-08-21 | registry.json 唯一权威、REGISTRY.md 生成视图；md 不再单独上传飞书 |
 | 1.4 | 2026-08-25 | 源文件统一移入 sops/，删除口语化 AI 使用说明，命名规则改为以 front matter 与 registry 为准 |
+| 1.5 | 2026-08-26 | 发布语义调整为 Draft/Approved 可发布，Draft 发布不代表已签批 |

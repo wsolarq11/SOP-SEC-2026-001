@@ -5,14 +5,14 @@
 #
 # 发布契约：sops/registry.json「已分配编号」数据是清单唯一机器来源。
 #   - docx 输出名 = 源文件 basename 的 .md 换成 .docx
-#   - Retired 文档不进入清单；Draft 文档跳过并提示
-#   - 只有 Approved 文档进入发布清单；无 Approved 时明确提示，不阻断
+#   - Retired 文档不进入清单；Draft/Approved 文档进入清单
+#   - Draft 发布不代表已签批，Approved 仍是正式签批状态
 #   - REGISTRY.md / registry.json 不生成 docx（输出为 NONE），源码随仓库 bundle 备份
 #   - 发布只上传 docx；md 不再单独上传
 #   - 每个 docx 条目必须提供 docx 上传 token，缺失即失败
 #
 # 用法:
-#   bash publish.sh            # 发布清单中已 Approved 文档
+#   bash publish.sh            # 发布清单中 Draft/Approved 文档
 #   bash publish.sh --dry-run  # 仅构建+校验+token 完备性检查，不上传
 #   bash publish.sh <md路径>   # 只发布指定文档（相对仓库根，如 sops/SOP-SEC-2026-001.md）
 #
@@ -79,8 +79,8 @@ for entry in "${MANIFEST[@]}"; do
   fi
 done
 if [ "$HAS_DOCX" = "0" ]; then
-  echo "当前没有 Approved 文档，无可发布条目"
-  echo "统一语义：Draft 不发布，Approved 才发布，Retired 注销"
+  echo "当前没有可发布文档（Draft/Approved），无可发布条目"
+  echo "统一语义：Draft/Approved 发布，Retired 注销；Draft 发布不代表签批"
   exit 0
 fi
 

@@ -8,7 +8,7 @@
 
 规则：
 - 以 sops/registry.json 为机器唯一来源；Retired 文档不进入清单。
-- 只有 Approved 文档进入发布清单；Draft 文档只提示不发布。
+- Draft 与 Approved 文档进入发布清单；Draft 发布不代表已签批。
 - docx 输出名 = 源文件 basename 的 .md 换成 .docx。
 - REGISTRY.md 与 registry.json 属于元数据，docx 列为 NONE，源码另行 bundle 备份。
 """
@@ -18,18 +18,24 @@ import os
 import sys
 from collections.abc import Sequence
 
-from registry_lib import REGISTRY_JSON_REL, REGISTRY_REL, parse_registry, validate_registry_entries
+from registry_lib import (
+    PUBLISHABLE_STATUSES,
+    REGISTRY_JSON_REL,
+    REGISTRY_REL,
+    parse_registry,
+    validate_registry_entries,
+)
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
-def _warn_drafts(entries: Sequence[dict[str, str]]) -> None:
-    drafts = [entry["document_id"] for entry in entries
-              if entry.get("status") == "Draft"]
-    if drafts:
-        print("[WARN] Draft 文档不进入发布清单: %s" % ", ".join(drafts),
+def _warn_retired(entries: Sequence[dict[str, str]]) -> None:
+    retired = [entry["document_id"] for entry in entries
+               if entry.get("status") == "Retired"]
+    if retired:
+        print("[WARN] Retired 文档不进入发布清单: %s" % ", ".join(retired),
               file=sys.stderr)
 
 
@@ -41,7 +47,7 @@ def _manifest_lines(entries: Sequence[dict[str, str]]) -> list[str]:
     lines = []
     seen_sources: set[str] = set()
     for entry in entries:
-        if entry.get("status") != "Approved":
+        if entry.get("status") not in PUBLISHABLE_STATUSES:
             continue
         source = entry.get("source", "").replace(os.sep, "/")
         if source in seen_sources:
@@ -58,10 +64,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     issues, _ = validate_registry_entries(entries, errors)
     if issues:
         return 1
-    _warn_drafts(entries)
+    _warn_retired(entries)
     lines = _manifest_lines(entries)
     if not lines:
-        print("[WARN] 当前没有 Approved 文档，无可发布项目", file=sys.stderr)
+        print("[WARN] 当前没有可发布文档（Draft/Approved），无可发布项目",
+              file=sys.stderr)
     for line in lines:
         print(line)
     print("%s|NONE" % REGISTRY_REL)

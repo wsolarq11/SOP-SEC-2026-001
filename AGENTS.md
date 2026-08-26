@@ -23,7 +23,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 
 AGENTS.md — SOP 知识库工作区指南
-本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-26（仓库已改 public，GitHub Actions 恢复并全绿；发布语义仍为 Draft 不发布、Approved 才发布、Retired 注销）。
+本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-26（仓库已改 public，GitHub Actions 恢复并全绿；发布语义为 Draft/Approved 发布、Retired 注销，Draft 发布不代表已签批）。
 
 一、仓库定位：源 vs 临时区
 位置	角色	git
@@ -59,7 +59,7 @@ doc_type（2026-08-14 起登记）：policy 方针 / standard 标准 / procedure
 IMS 层级：L1 方针 / L2 跨部门程序 / L3 作业指导书+记录
 域名代码：INFRA / SEC / APP / DESK / DR / GEN，各绑定默认关联标准（SEC→ISO/IEC 27001，APP/DESK→ISO/IEC 20000-1，其余→ISO 9001）
 目标目录：飞书 Wiki「企业IT-SOP知识库」的 00-总纲与索引 … 07-参考与说明，与线上落位一一对应
-发布契约（2026-08-17 起；2026-08-21 起机器源改为 registry.json）：publish.sh 的构建/发布清单由 sops/registry.json 自动生成，REGISTRY.md 由 registry_render.py 同步审计表；不再维护脚本内 manifest；docx 输出名 = 源文件 basename 的 .md 换成 .docx；状态语义统一为 Draft 不发布、Approved 才发布、Retired 注销不发布；缺 token 即失败
+发布契约（2026-08-17 起；2026-08-21 起机器源改为 registry.json；2026-08-26 起允许 Draft 发布）：publish.sh 的构建/发布清单由 sops/registry.json 自动生成，REGISTRY.md 由 registry_render.py 同步审计表；不再维护脚本内 manifest；docx 输出名 = 源文件 basename 的 .md 换成 .docx；状态语义统一为 Draft/Approved 发布、Retired 注销不发布，Draft 发布不代表已签批；缺 token 即失败
 md front matter schema（新格式，faa3c44 起连坐升级；2026-08-18 收敛）：必填 document_id / title / category / doc_type / version / status / author / approver；可选 effective_date（生效日期，ISO 9001:2015 7.5.2 a 日期要素）；已废弃勿再用：doc_number / domain / owner / level / review_due / last_reviewed / related_standards（层级与关联标准以 sops/registry.json 为唯一权威）
 四、知识库承载模式（2026-08-14 起 = 文件挂载）
 每文档一个飞书节点：·成品（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走同名覆盖（file token 不变，节点不失效）。上传 token 见仓库根 .publish-tokens（gitignore 忽略，不入库）；8/13 曾使用临时区 *_create.json 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：https://github.com/wsolarq11/SOP-SEC-2026-001.git（public，master）；.github/workflows/publish.yml 在 push 后自动跑 check_docs.py + docx 构建，并还原 PUBLISH_TOKENS_B64 secret；LARK_APP_ID/LARK_APP_SECRET 已配置为 GitHub secrets，CI 以 bot 身份自动上传；应用 cli_aaf1518a8c789bd5 已对现有 docx 成品文件获得 full_access 协作者权限。仓库备份登记 BACKUP_BUNDLE|<bundle file_token>|NONE、BACKUP_FOLDER|<90 目录 folder_token>|NONE、BACKUP_WIKI|<90 目录 wiki node_token>|NONE，由 backup_commit.sh 读写。GitHub 与飞书 bundle 为主副双备份，两者都必须成功；post-commit/pre-push hook 失败会让 git commit/push 显式失败。GitHub 本机凭据统一走 `gh auth login`，禁止把 token 写进 remote URL、`.git/config`、`~/.git-credentials` 或 `credential.helper store`；`backup_commit.sh --install` 会自动安装 `check_git_auth.sh` 守卫，pre-push 先做网络实测再上传 bundle。

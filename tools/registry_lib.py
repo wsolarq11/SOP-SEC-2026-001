@@ -23,6 +23,7 @@ VERSION_HEADING = "## 版本修订记录"
 DOC_TYPES = {"policy", "standard", "procedure", "guideline", "reference"}
 DOMAINS = {"INFRA", "SEC", "APP", "DESK", "DR", "GEN"}
 VALID_STATUSES = {"Draft", "Approved", "Retired"}
+PUBLISHABLE_STATUSES = frozenset({"Draft", "Approved"})
 VERSION_RE = re.compile(r"^\d+\.\d+$")
 COLUMNS = [
     "document_id",

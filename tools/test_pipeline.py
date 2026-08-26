@@ -183,7 +183,7 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("OK:", proc.stdout)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
-    def test_manifest_skips_draft_without_approved(self) -> None:
+    def test_manifest_includes_draft_and_approved(self) -> None:
         proc = subprocess.run(
             [sys.executable, os.path.join(HERE, "registry_manifest.py")],
             cwd=ROOT,
@@ -193,7 +193,9 @@ class PipelineTests(unittest.TestCase):
             errors="replace",
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertIn("没有 Approved", proc.stdout + proc.stderr)
+        self.assertIn("SOP-GEN-2026-001-合规与标准定位.docx", proc.stdout)
+        self.assertIn("SOP-通用-系统说明.docx", proc.stdout)
+        self.assertNotIn("SOP-DESK-2026-003.md", proc.stdout)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
     def test_kb_cli_stage_path_resolves_toolchain(self) -> None:
