@@ -22,17 +22,15 @@ TABLE_HEADING = "## 已分配编号"
 VERSION_HEADING = "## 版本修订记录"
 DOC_TYPES = {"policy", "standard", "procedure", "guideline", "reference"}
 DOMAINS = {"INFRA", "SEC", "APP", "DESK", "DR", "GEN"}
-VALID_STATUSES = {"Draft", "Approved", "Retired"}
+VALID_STATUSES = {"Draft", "Approved"}
 PUBLISHABLE_STATUSES = frozenset({"Draft", "Approved"})
 VERSION_RE = re.compile(r"^\d+\.\d+$")
 COLUMNS = [
     "document_id",
     "title",
-    "level",
     "doc_type",
     "domain",
     "version",
-    "related_standards",
     "author",
     "status",
     "source",
@@ -41,11 +39,9 @@ COLUMNS = [
 HEADER_ALIASES = {
     "文档号": "document_id",
     "标题": "title",
-    "层级": "level",
     "类型": "doc_type",
     "域名": "domain",
     "版本": "version",
-    "关联标准": "related_standards",
     "编制人": "author",
     "状态": "status",
     "源文件": "source",
@@ -272,7 +268,7 @@ def _path_inside_repo(source: str) -> bool:
 
 def _check_entry_identity(entry: dict[str, str], seen_ids: set[str],
                           seen_sources: set[str],
-                          fail: Callable[[str], None]) -> bool:
+                          fail: Callable[[str], None]) -> None:
     did = entry.get("document_id", "") or "<missing>"
     src = entry.get("source", "") or ""
     if did in seen_ids:
@@ -284,7 +280,6 @@ def _check_entry_identity(entry: dict[str, str], seen_ids: set[str],
     status = entry.get("status", "") or ""
     if status not in VALID_STATUSES:
         fail("%s: 未知 status=%r" % (did, status))
-    return status == "Retired"
 
 
 def _check_entry_shape(entry: dict[str, str], fail: Callable[[str], None]) -> bool:
@@ -378,8 +373,7 @@ def _validate_entry(entry: dict[str, str], registered_sources: set[str],
         nonlocal issues
         issues += _report_issue(msg)
 
-    if _check_entry_identity(entry, seen_ids, seen_sources, fail):
-        return issues
+    _check_entry_identity(entry, seen_ids, seen_sources, fail)
     if not _check_entry_shape(entry, fail):
         return issues
     if not _register_source(entry, registered_sources, seen_docx_names, fail):

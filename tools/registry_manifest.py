@@ -7,7 +7,7 @@
   sops/registry.json|NONE
 
 规则：
-- 以 sops/registry.json 为机器唯一来源；Retired 文档不进入清单。
+- 以 sops/registry.json 为机器唯一来源；停用文档直接从 registry 删除。
 - Draft 与 Approved 文档进入发布清单；Draft 发布不代表已签批。
 - docx 输出名 = 源文件 basename 的 .md 换成 .docx。
 - REGISTRY.md 与 registry.json 属于元数据，docx 列为 NONE，源码另行 bundle 备份。
@@ -29,14 +29,6 @@ from registry_lib import (
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-
-def _warn_retired(entries: Sequence[dict[str, str]]) -> None:
-    retired = [entry["document_id"] for entry in entries
-               if entry.get("status") == "Retired"]
-    if retired:
-        print("[WARN] Retired 文档不进入发布清单: %s" % ", ".join(retired),
-              file=sys.stderr)
 
 
 def _docx_name(source: str) -> str:
@@ -64,7 +56,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     issues, _ = validate_registry_entries(entries, errors)
     if issues:
         return 1
-    _warn_retired(entries)
     lines = _manifest_lines(entries)
     if not lines:
         print("[WARN] 当前没有可发布文档（Draft/Approved），无可发布项目",

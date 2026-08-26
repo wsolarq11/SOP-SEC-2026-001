@@ -62,8 +62,6 @@ class PipelineTests(unittest.TestCase):
         entries, errors = registry_lib.parse_registry()
         self.assertEqual(errors, [])
         for entry in entries:
-            if entry.get("status") == "Retired":
-                continue
             with open(os.path.join(ROOT, entry["source"]), encoding="utf-8") as f:
                 text = f.read()
             latest = registry_lib.latest_revision_version(text)
@@ -93,9 +91,9 @@ class PipelineTests(unittest.TestCase):
 
     def test_registry_parser_uses_header_order(self) -> None:
         registry_md = """## 已分配编号
-| 标题 | 文档号 | 状态 | 源文件 | 目标目录 | 类型 | 域名 | 版本 | 关联标准 | 编制人 | 层级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Test | SOP-TEST-2026-001 | Draft | sops/test.md | 06-GEN-通用 | procedure | GEN | 1.0 | ISO 9001 | Tester | L3 |
+| 标题 | 文档号 | 状态 | 源文件 | 目标目录 | 类型 | 域名 | 版本 | 编制人 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Test | SOP-TEST-2026-001 | Draft | sops/test.md | 06-GEN-通用 | procedure | GEN | 1.0 | Tester |
 """
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "REGISTRY.md")
@@ -195,7 +193,6 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("SOP-GEN-2026-001-合规与标准定位.docx", proc.stdout)
         self.assertIn("SOP-通用-系统说明.docx", proc.stdout)
-        self.assertNotIn("SOP-DESK-2026-003.md", proc.stdout)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
     def test_kb_cli_stage_path_resolves_toolchain(self) -> None:

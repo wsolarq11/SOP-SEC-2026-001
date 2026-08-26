@@ -23,7 +23,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 
 AGENTS.md — SOP 知识库工作区指南
-本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-26（仓库已改 public，GitHub Actions 恢复并全绿；发布语义为 Draft/Approved 发布、Retired 注销，Draft 发布不代表已签批）。
+本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-26（仓库已改 public，GitHub Actions 恢复并全绿；发布语义为 Draft/Approved 发布，停用文档从 registry 删除，Draft 发布不代表已签批）。
 
 一、仓库定位：源 vs 临时区
 位置	角色	git
@@ -54,13 +54,13 @@ output/**/stage2/、output/**/restructured.html 为可复现中间产物，不�
 .workbuddy/ 工具元数据不入库
 tools/feishu_preview_proxy/run/、config.json、日志为本机运行时产物，不入库
 三、文档治理（sops/registry.json 为机器唯一权威）
-编号规则：SOP-<域名>-<年>-<序号>（序号按"域名+年"各自递增，不足 3 位前补零；跨年不沿用旧序号）。登记后不回收、不重用（作废仅改状态为 Retired）
+编号规则：SOP-<域名>-<年>-<序号>（序号按"域名+年"各自递增，不足 3 位前补零；跨年不沿用旧序号）。登记后不回收、不重用；停用文档直接从 registry 删除，历史编号保留在 git 历史中
 doc_type（2026-08-14 起登记）：policy 方针 / standard 标准 / procedure 程序 / guideline 指南 / reference 参考说明；参考类（如系统说明）归入 07-参考与说明 目录
-IMS 层级：L1 方针 / L2 跨部门程序 / L3 作业指导书+记录
-域名代码：INFRA / SEC / APP / DESK / DR / GEN，各绑定默认关联标准（SEC→ISO/IEC 27001，APP/DESK→ISO/IEC 20000-1，其余→ISO 9001）
+本库不登记 IMS 层级（L1/L2/L3），文档性质由 doc_type 区分
+域名代码：INFRA / SEC / APP / DESK / DR / GEN
 目标目录：飞书 Wiki「企业IT-SOP知识库」的 00-总纲与索引 … 07-参考与说明，与线上落位一一对应
-发布契约（2026-08-17 起；2026-08-21 起机器源改为 registry.json；2026-08-26 起允许 Draft 发布）：publish.sh 的构建/发布清单由 sops/registry.json 自动生成，REGISTRY.md 由 registry_render.py 同步审计表；不再维护脚本内 manifest；docx 输出名 = 源文件 basename 的 .md 换成 .docx；状态语义统一为 Draft/Approved 发布、Retired 注销不发布，Draft 发布不代表已签批；缺 token 即失败
-md front matter schema（新格式，faa3c44 起连坐升级；2026-08-18 收敛）：必填 document_id / title / category / doc_type / version / status / author / approver；可选 effective_date（生效日期，ISO 9001:2015 7.5.2 a 日期要素）；已废弃勿再用：doc_number / domain / owner / level / review_due / last_reviewed / related_standards（层级与关联标准以 sops/registry.json 为唯一权威）
+发布契约（2026-08-17 起；2026-08-21 起机器源改为 registry.json；2026-08-26 起允许 Draft 发布）：publish.sh 的构建/发布清单由 sops/registry.json 自动生成，REGISTRY.md 由 registry_render.py 同步审计表；不再维护脚本内 manifest；docx 输出名 = 源文件 basename 的 .md 换成 .docx；状态语义统一为 Draft/Approved 发布，Draft 发布不代表已签批；缺 token 即失败
+md front matter schema（新格式，faa3c44 起连坐升级；2026-08-18 收敛）：必填 document_id / title / category / doc_type / version / status / author / approver；可选 effective_date（生效日期）；已废弃勿再用：doc_number / domain / owner / level / review_due / last_reviewed（不再登记层级和标准映射）
 四、知识库承载模式（2026-08-14 起 = 文件挂载）
 每文档一个飞书节点：·成品（docx 文件，点击即在线预览/可下载，无导入导出损耗）。md 源不再单独上传，源码随仓库 bundle 备份（见 §五）。更新走同名覆盖（file token 不变，节点不失效）。上传 token 见仓库根 .publish-tokens（gitignore 忽略，不入库）；8/13 曾使用临时区 *_create.json 预签名凭证，当前 publish.sh 不再依赖该路径。GitHub remote：https://github.com/wsolarq11/SOP-SEC-2026-001.git（public，master）；.github/workflows/publish.yml 在 push 后自动跑 check_docs.py + docx 构建，并还原 PUBLISH_TOKENS_B64 secret；LARK_APP_ID/LARK_APP_SECRET 已配置为 GitHub secrets，CI 以 bot 身份自动上传；应用 cli_aaf1518a8c789bd5 已对现有 docx 成品文件获得 full_access 协作者权限。仓库备份登记 BACKUP_BUNDLE|<bundle file_token>|NONE、BACKUP_FOLDER|<90 目录 folder_token>|NONE、BACKUP_WIKI|<90 目录 wiki node_token>|NONE，由 backup_commit.sh 读写。GitHub 与飞书 bundle 为主副双备份，两者都必须成功；post-commit/pre-push hook 失败会让 git commit/push 显式失败。GitHub 本机凭据统一走 `gh auth login`，禁止把 token 写进 remote URL、`.git/config`、`~/.git-credentials` 或 `credential.helper store`；`backup_commit.sh --install` 会自动安装 `check_git_auth.sh` 守卫，pre-push 先做网络实测再上传 bundle。
 
@@ -75,7 +75,7 @@ backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次�
 七、标准工作流
 仓库备份初始化（一次性）：python tools/kb.py backup --install，再 python tools/kb.py backup --init --wiki-token <90目录wiki node_token>
 
-编辑/新建 md 源（放 sops/；系统说明类归 07-参考与说明），同步登记 sops/registry.json（编号、类型、层级、域名、目标目录；发布清单会自动包含该条目），再运行 `python tools/kb.py registry-render --write` 同步 REGISTRY.md 审计表
+编辑/新建 md 源（放 sops/；系统说明类归 07-参考与说明），同步登记 sops/registry.json（编号、类型、域名、目标目录；发布清单会自动包含该条目），再运行 `python tools/kb.py registry-render --write` 同步 REGISTRY.md 审计表
 跑 `python tools/kb.py check` 健康检查（front matter 完整性 + registry.json 契约一致性）
 构建验证：python tools/kb.py publish --dry-run，输出到 %TEMP%\sop-exports\publish\（docx 不入库）
 git 提交 md 源与生成器改动（docx 一律不入库；pre-commit 先跑 `python tools/kb.py secrets --staged`，post-commit hook 必须完成飞书 bundle 上传，失败时 git commit 显式报错）

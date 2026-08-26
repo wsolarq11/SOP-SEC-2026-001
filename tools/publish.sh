@@ -5,7 +5,7 @@
 #
 # 发布契约：sops/registry.json「已分配编号」数据是清单唯一机器来源。
 #   - docx 输出名 = 源文件 basename 的 .md 换成 .docx
-#   - Retired 文档不进入清单；Draft/Approved 文档进入清单
+#   - 停用文档直接从 registry 删除；Draft/Approved 文档进入清单
 #   - Draft 发布不代表已签批，Approved 仍是正式签批状态
 #   - REGISTRY.md / registry.json 不生成 docx（输出为 NONE），源码随仓库 bundle 备份
 #   - 发布只上传 docx；md 不再单独上传
@@ -80,7 +80,7 @@ for entry in "${MANIFEST[@]}"; do
 done
 if [ "$HAS_DOCX" = "0" ]; then
   echo "当前没有可发布文档（Draft/Approved），无可发布条目"
-  echo "统一语义：Draft/Approved 发布，Retired 注销；Draft 发布不代表签批"
+  echo "统一语义：Draft/Approved 发布；Draft 发布不代表签批"
   exit 0
 fi
 

@@ -27,11 +27,9 @@ if hasattr(sys.stdout, "reconfigure"):
 HEADER_LABELS = {
     "document_id": "文档号",
     "title": "标题",
-    "level": "层级",
     "doc_type": "类型",
     "domain": "域名",
     "version": "版本",
-    "related_standards": "关联标准",
     "author": "编制人",
     "status": "状态",
     "source": "源文件",
