@@ -30,6 +30,8 @@ GLOBAL_TMP="$TMP/global"
 FAKE_BIN="$TMP/bin"
 mkdir -p "$HOME_TMP" "$FAKE_BIN"
 : > "$GLOBAL_TMP"
+REPO_TMP="$TMP/repo"
+git init -q "$REPO_TMP"
 
 cat > "$FAKE_BIN/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -52,8 +54,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# CI checkout 会在真实仓库写入 local extraheader，测试必须隔离本地 git 配置。
 export HOME="$HOME_TMP"
 export GIT_CONFIG_GLOBAL="$GLOBAL_TMP"
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_DIR="$REPO_TMP/.git"
+export GIT_WORK_TREE="$REPO_TMP"
 export PATH="$FAKE_BIN:$PATH"
 
 fail_test() {
