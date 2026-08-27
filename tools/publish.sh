@@ -14,6 +14,7 @@
 # 用法:
 #   bash publish.sh            # 发布清单中 Draft/Approved 文档
 #   bash publish.sh --dry-run  # 仅构建+校验+token 完备性检查，不上传
+#   bash publish.sh --bootstrap # 缺 token 时先自动首次上传并登记
 #   bash publish.sh <md路径>   # 只发布指定文档（相对仓库根，如 sops/SOP-SEC-2026-001.md）
 #
 # 原则: 单一入口 / dry-run / 幂等同名覆盖 / 失败即报错可重跑
@@ -49,7 +50,14 @@ fi
 AS="${AS:-user}"
 
 DRY=0
-[[ "${1:-}" == "--dry-run" ]] && DRY=1 && shift
+BOOTSTRAP=0
+while [[ "${1:-}" == --* ]]; do
+  case "$1" in
+    --dry-run) DRY=1; shift ;;
+    --bootstrap) BOOTSTRAP=1; shift ;;
+    *) echo "未知参数: $1"; exit 2 ;;
+  esac
+done
 TARGET="${1:-ALL}"
 
 mkdir -p "$PUB"
@@ -94,6 +102,42 @@ while IFS='|' read -r mdrel mdtok docxtok; do
   [ -z "$mdrel" ] && continue
   DOCTOK["$mdrel"]="$docxtok"
 done < <(tr -d "\r" < "$ROOT/.publish-tokens")
+
+# token 自举：缺映射时直接首次上传飞书并登记，不再停在人工补 token
+if [ "$BOOTSTRAP" = "1" ]; then
+  if [ "$DRY" = "1" ]; then
+    echo "[FAIL] --dry-run 不能创建飞书节点，请先执行 token-bootstrap 或去掉 --dry-run"
+    exit 1
+  fi
+  MISSING=()
+  for entry in "${MANIFEST[@]}"; do
+    IFS='|' read -r mdrel docxname <<< "$entry"
+    if [ "$docxname" = "NONE" ]; then
+      continue
+    fi
+    if [ "$TARGET" != "ALL" ] && [ "$mdrel" != "$TARGET" ] && [ "$docxname" != "$TARGET" ]; then
+      continue
+    fi
+    if [ -z "${DOCTOK[$mdrel]:-}" ] || [ "${DOCTOK[$mdrel]}" = "NONE" ]; then
+      MISSING+=("$mdrel")
+    fi
+  done
+  if [ "${#MISSING[@]}" -gt 0 ]; then
+    echo "== token 自举（首次上传并登记）=="
+    for mdrel in "${MISSING[@]}"; do
+      if ! "$PY" "$TOOLS/token_bootstrap.py" --source "$mdrel"; then
+        echo "  [FAIL] token 自举失败: $mdrel"
+        exit 1
+      fi
+    done
+    unset DOCTOK
+    declare -A DOCTOK
+    while IFS='|' read -r mdrel mdtok docxtok; do
+      [ -z "$mdrel" ] && continue
+      DOCTOK["$mdrel"]="$docxtok"
+    done < <(tr -d "\r" < "$ROOT/.publish-tokens")
+  fi
+fi
 
 # token 完备性是发布契约的一部分；dry-run 也检查，避免临发布才发现缺映射
 echo
@@ -160,6 +204,7 @@ fi
 
 echo
 echo "== [4/4] 同名覆盖上传飞书（幂等，token 不变）=="
+UPDATED_REGISTRY=0
 cd "$PUB"  # lark-cli --file 要求 cwd 相对路径
 for entry in "${MANIFEST[@]}"; do
   IFS='|' read -r mdrel docxname <<< "$entry"
@@ -176,6 +221,12 @@ for entry in "${MANIFEST[@]}"; do
       RETURNED_TOKEN="${RETURNED_TOKEN%$'\r'}"
       if [ "$RETURNED_TOKEN" = "${DOCTOK[$mdrel]}" ]; then
         echo "  [OK] docx 上传: $docxname"
+        if ! "$PY" "$TOOLS/publish_log.py" --log "$PUB/publish-log.jsonl" --update-registry --persist --repo-summary "$mdrel" "${DOCTOK[$mdrel]}"; then
+          echo "  [FAIL] 发布记录写入失败: $docxname"
+          FAIL=$((FAIL+1))
+        else
+          UPDATED_REGISTRY=1
+        fi
       else
         echo "  [FAIL] docx 上传后 file_token 不一致: $docxname"
         printf '%s\n' "$UPLOAD_OUTPUT" | "$PY" "$LARK_JSON" message || true
@@ -188,6 +239,10 @@ for entry in "${MANIFEST[@]}"; do
     fi
   fi
 done
+
+if [ "$UPDATED_REGISTRY" = "1" ]; then
+  "$PY" "$TOOLS/registry_render.py" --write || { echo "[FAIL] REGISTRY.md 同步失败"; exit 1; }
+fi
 
 echo
 echo "== [4/4] 完成 =="

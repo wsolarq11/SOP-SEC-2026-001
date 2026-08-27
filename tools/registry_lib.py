@@ -36,6 +36,26 @@ COLUMNS = [
     "source",
     "target_dir",
 ]
+OPTIONAL_FIELDS = [
+    "requirement_ref",
+    "approver",
+    "effective_date",
+    "reviewer",
+    "reviewed_at",
+    "approved_at",
+    "last_published_at",
+]
+ALLOWED_FIELDS = frozenset(COLUMNS + OPTIONAL_FIELDS)
+FRONT_MATTER_OPTIONAL_MATCH = [
+    ("requirement_ref", "requirement_ref"),
+    ("approver", "approver"),
+    ("effective_date", "effective_date"),
+    ("reviewer", "reviewer"),
+    ("reviewed_at", "reviewed_at"),
+    ("approved_at", "approved_at"),
+]
+DATE_FIELDS = ("reviewed_at", "approved_at", "last_published_at")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 HEADER_ALIASES = {
     "文档号": "document_id",
     "标题": "title",
@@ -46,6 +66,13 @@ HEADER_ALIASES = {
     "状态": "status",
     "源文件": "source",
     "目标目录": "target_dir",
+    "需求来源": "requirement_ref",
+    "签批人": "approver",
+    "生效日期": "effective_date",
+    "评审人": "reviewer",
+    "评审时间": "reviewed_at",
+    "签批时间": "approved_at",
+    "最近发布": "last_published_at",
 }
 FRONT_MATTER_MATCH = [
     ("document_id", "document_id"),
@@ -160,12 +187,12 @@ def _append_json_entry(entry: object, idx: int,
     if not isinstance(entry, dict):
         errors.append("registry JSON 第 %d 项必须是对象" % idx)
         return
-    unknown = [key for key in entry if key not in COLUMNS]
+    unknown = [key for key in entry if key not in ALLOWED_FIELDS]
     if unknown:
         errors.append("registry JSON 第 %d 项含未知字段: %s"
                       % (idx, ",".join(unknown)))
         return
-    entries.append(_normalize_entry(entry, COLUMNS))
+    entries.append(_normalize_entry(entry, COLUMNS + OPTIONAL_FIELDS))
 
 
 def _parse_registry_json(path: str) -> tuple[list[dict[str, str]], list[str]]:
@@ -344,6 +371,31 @@ def _check_fm_matches(fm: dict[str, str], entry: dict[str, str], src: str,
         )
 
 
+def _check_optional_fm_matches(fm: dict[str, str], entry: dict[str, str],
+                               src: str, fail: Callable[[str], None]) -> None:
+    for fm_key, reg_key in FRONT_MATTER_OPTIONAL_MATCH:
+        fm_value = fm.get(fm_key, "")
+        reg_value = entry.get(reg_key, "")
+        if fm_value and reg_value and fm_value != reg_value:
+            fail(
+                "%s: front matter %s=%r 与 REGISTRY %s=%r 不一致"
+                % (src, fm_key, fm_value, reg_key, reg_value)
+            )
+
+
+def _check_optional_field_shapes(entry: dict[str, str],
+                                 fail: Callable[[str], None]) -> None:
+    did = entry.get("document_id", "") or "<missing>"
+    for field in DATE_FIELDS:
+        value = entry.get(field, "")
+        if value and not DATE_RE.match(value):
+            fail("%s: 可选字段 %s=%r 必须是 YYYY-MM-DD" % (did, field, value))
+    effective = entry.get("effective_date", "")
+    if effective and effective != "待定" and not DATE_RE.match(effective):
+        fail("%s: 可选字段 effective_date=%r 必须是 YYYY-MM-DD 或待定"
+             % (did, effective))
+
+
 def _check_front_matter_contract(src: str, entry: dict[str, str],
                                  fail: Callable[[str], None]) -> None:
     did = entry.get("document_id", "") or "<missing>"
@@ -357,6 +409,7 @@ def _check_front_matter_contract(src: str, entry: dict[str, str],
         return
     _check_revision_match(text or "", fm, src, fail)
     _check_fm_matches(fm, entry, src, fail)
+    _check_optional_fm_matches(fm, entry, src, fail)
 
 
 def _report_issue(msg: str) -> int:
@@ -378,6 +431,7 @@ def _validate_entry(entry: dict[str, str], registered_sources: set[str],
         return issues
     if not _register_source(entry, registered_sources, seen_docx_names, fail):
         return issues
+    _check_optional_field_shapes(entry, fail)
     _check_front_matter_contract(entry["source"], entry, fail)
     return issues
 

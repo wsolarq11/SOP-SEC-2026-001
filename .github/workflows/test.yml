@@ -21,3 +21,6 @@ jobs:
 
       - name: Run tests
         run: python tools/kb.py test
+
+      - name: Report production line
+        run: python tools/kb.py line --json

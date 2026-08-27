@@ -21,10 +21,14 @@ if os.path.join(HERE, "feishu_preview_proxy") not in sys.path:
     sys.path.insert(0, os.path.join(HERE, "feishu_preview_proxy"))
 
 import check_secrets
+import fact_ops
 import feishu_mitm_proxy as feishu_proxy
+import line_report
+import publish_log
 import registry_lib
 import registry_render
 import sop_to_docx_stdlib
+import token_bootstrap
 
 _SAMPLE_SOP_MD = """---
 document_id: SOP-GEN-2026-TEST
@@ -218,6 +222,229 @@ class PipelineTests(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("OK:", proc.stdout)
+
+    def test_registry_json_accepts_optional_production_fields(self) -> None:
+        payload = {
+            "entries": [{
+                "document_id": "SOP-TEST-2026-001",
+                "title": "Test",
+                "doc_type": "procedure",
+                "domain": "GEN",
+                "version": "1.0",
+                "author": "Tester",
+                "status": "Draft",
+                "source": "sops/test.md",
+                "target_dir": "06-GEN-通用",
+                "requirement_ref": "REQ-1",
+                "reviewer": "Reviewer",
+                "reviewed_at": "2026-08-27",
+                "approved_at": "",
+                "last_published_at": "",
+            }]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "registry.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False)
+            entries, errors = registry_lib.parse_registry(path)
+        self.assertEqual(errors, [])
+        self.assertEqual(entries[0]["requirement_ref"], "REQ-1")
+        self.assertEqual(entries[0]["reviewed_at"], "2026-08-27")
+
+    def test_publish_log_appends_jsonl_record(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "publish-log.jsonl")
+            record = publish_log.append_publish(
+                log, ".sop/AI会话知识库维护流程.md", "tok-1"
+            )
+            with open(log, encoding="utf-8") as f:
+                line = json.loads(f.readline())
+        self.assertEqual(record["document_id"], "SOP-GEN-2026-004")
+        self.assertEqual(line["source"], ".sop/AI会话知识库维护流程.md")
+        self.assertEqual(line["file_token"], "tok-1")
+        self.assertEqual(line["result"], "success")
+
+    def test_publish_log_rejects_unregistered_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "publish-log.jsonl")
+            with self.assertRaises(KeyError):
+                publish_log.append_publish(log, "sops/not-registered.md", "tok")
+
+    def test_publish_log_records_source_hash_and_dirty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "publish-log.jsonl")
+            record = publish_log.append_publish(
+                log, ".sop/AI会话知识库维护流程.md", "tok-1"
+            )
+        self.assertEqual(len(record["source_hash"]), 64)
+        self.assertIn("dirty", record)
+        self.assertTrue(record["commit"])
+
+    def test_publish_log_updates_registry_last_published(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "publish-log.jsonl")
+            registry_path = os.path.join(tmp, "registry.json")
+            payload = {
+                "schema_version": 1,
+                "entries": [{
+                    "document_id": "SOP-GEN-2026-004",
+                    "title": "AI 会话知识库维护流程",
+                    "source": ".sop/AI会话知识库维护流程.md",
+                }],
+            }
+            with open(registry_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False)
+            record = publish_log.append_publish(
+                log, ".sop/AI会话知识库维护流程.md", "tok-1",
+                update_registry=True, registry_path=registry_path
+            )
+            with open(registry_path, encoding="utf-8") as f:
+                data = json.load(f)
+        self.assertEqual(data["entries"][0]["last_published_at"],
+                         record["time"][:10])
+
+    def test_publish_log_writes_safe_repo_summary_without_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "publish-log.jsonl")
+            history = os.path.join(tmp, "publish-history.jsonl")
+            record = publish_log.append_publish(
+                log, ".sop/AI会话知识库维护流程.md", "tok-1",
+                repo_summary=True, repo_history=history
+            )
+            with open(history, encoding="utf-8") as f:
+                safe = json.loads(f.readline())
+        self.assertEqual(safe["document_id"], "SOP-GEN-2026-004")
+        self.assertEqual(safe["source"], ".sop/AI会话知识库维护流程.md")
+        self.assertEqual(safe["time"], record["time"])
+        self.assertNotIn("file_token", safe)
+
+    def test_line_report_deduplicates_repo_summary_and_token_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "publish-log.jsonl")
+            history = os.path.join(tmp, "publish-history.jsonl")
+            tokens = os.path.join(tmp, "tokens")
+            with open(tokens, "w", encoding="utf-8") as f:
+                f.write(".sop/AI会话知识库维护流程.md|md|docx\n")
+            publish_log.append_publish(
+                log, ".sop/AI会话知识库维护流程.md", "tok-1",
+                repo_summary=True, repo_history=history
+            )
+            proc = subprocess.run(
+                [sys.executable, os.path.join(HERE, "line_report.py"),
+                 "--doc", "SOP-GEN-2026-004", "--json", "--log", log,
+                 "--repo-history", history, "--tokens", tokens],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=dict(os.environ, LOCALAPPDATA=tmp, TEMP=tmp),
+            )
+            data = json.loads(proc.stdout)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(data["summary"]["publish_records"], 1)
+        self.assertEqual(data["entries"][0]["stage"], "已发布")
+
+    def test_line_report_blocks_missing_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "publish-log.jsonl")
+            tokens = os.path.join(tmp, "tokens")
+            with open(tokens, "w", encoding="utf-8") as f:
+                f.write("# empty\n")
+            proc = subprocess.run(
+                [sys.executable, os.path.join(HERE, "line_report.py"),
+                 "--doc", "SOP-GEN-2026-004", "--json", "--log", log,
+                 "--tokens", tokens],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        data = json.loads(proc.stdout)
+        self.assertEqual(data["entries"][0]["blocked"], "阻塞")
+        self.assertEqual(data["summary"]["blocked"], 1)
+        self.assertEqual(data["summary"]["lines"], 1)
+        self.assertIn("publish_records", data["summary"])
+
+    def test_token_bootstrap_updates_and_replaces_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tokens = os.path.join(tmp, "tokens")
+            token_bootstrap._update_tokens(
+                tokens, ".sop/AI会话知识库维护流程.md", "tok-a"
+            )
+            first = token_bootstrap._read_tokens(tokens)
+            token_bootstrap._update_tokens(
+                tokens, ".sop/AI会话知识库维护流程.md", "tok-b"
+            )
+            second = token_bootstrap._read_tokens(tokens)
+            with open(tokens, encoding="utf-8") as f:
+                count = sum(line.startswith(".sop/") for line in f)
+        self.assertEqual(first[".sop/AI会话知识库维护流程.md"], "tok-a")
+        self.assertEqual(second[".sop/AI会话知识库维护流程.md"], "tok-b")
+        self.assertEqual(count, 1)
+
+    def test_token_bootstrap_backup_token_stays_none(self) -> None:
+        self.assertEqual(
+            token_bootstrap._exclude_backup_token("BACKUP_BUNDLE", "tok"),
+            "NONE")
+        self.assertEqual(
+            token_bootstrap._exclude_backup_token(
+                ".sop/AI会话知识库维护流程.md", "tok"),
+            "tok")
+
+    def test_registry_render_syncs_front_matter_one_way(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "test.md")
+            with open(source, "w", encoding="utf-8") as f:
+                f.write(_SAMPLE_SOP_MD)
+            entry = {
+                "document_id": "SOP-GEN-2026-TEST",
+                "title": "Test SOP",
+                "domain": "GEN",
+                "doc_type": "procedure",
+                "version": "1.0",
+                "status": "Draft",
+                "author": "Tester",
+                "approver": "审批人",
+                "effective_date": "2026-08-27",
+                "requirement_ref": "REQ-1",
+                "reviewer": "",
+                "reviewed_at": "",
+                "approved_at": "",
+            }
+            changed = registry_render.sync_source_front_matter(
+                "test.md", entry, root=tmp
+            )
+            with open(source, encoding="utf-8") as f:
+                text = f.read()
+            fm = registry_lib.parse_fm(text)
+        self.assertTrue(changed)
+        self.assertEqual(fm["approver"], "审批人")
+        self.assertEqual(fm["requirement_ref"], "REQ-1")
+        self.assertEqual(fm["effective_date"], "2026-08-27")
+        self.assertNotIn("reviewer", fm)
+
+    def test_line_report_marks_published_and_hides_tokens(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "publish-log.jsonl")
+            publish_log.append_publish(
+                log, ".sop/AI会话知识库维护流程.md", "token-should-not-print"
+            )
+            proc = subprocess.run(
+                [sys.executable, os.path.join(HERE, "line_report.py"),
+                 "--doc", "SOP-GEN-2026-004", "--json", "--log", log],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        data = json.loads(proc.stdout)
+        self.assertEqual(data["entries"][0]["stage"], "已发布")
+        self.assertNotIn("token-should-not-print", proc.stdout)
 
 
 class FeishuPreviewProxyTests(unittest.TestCase):

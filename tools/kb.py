@@ -6,6 +6,12 @@ Usage:
   python tools/kb.py secrets --all|--staged
   python tools/kb.py manifest
   python tools/kb.py registry-render [--write|--check]
+  python tools/kb.py line [--doc <document_id>] [--json]
+  python tools/kb.py fact link <document_id> <requirement_ref>
+  python tools/kb.py fact review <document_id> <reviewer> <reviewed_at>
+  python tools/kb.py fact signoff <document_id> <approver> <effective_date> [--reviewer ...] [--reviewed-at ...]
+  python tools/kb.py fact sync <document_id>
+  python tools/kb.py token-bootstrap --source <md> [--dry-run] [--sync-secret]
   python tools/kb.py build <input.md> <output.docx>
   python tools/kb.py publish [--dry-run] [target]
   python tools/kb.py backup [args...]
@@ -30,6 +36,9 @@ _PYTHON_SCRIPTS = {
     "manifest": "registry_manifest.py",
     "registry-render": "registry_render.py",
     "cleanup": "cleanup_90_md.py",
+    "line": "line_report.py",
+    "fact": "fact_ops.py",
+    "token-bootstrap": "token_bootstrap.py",
 }
 
 _SHELL_SCRIPTS = {

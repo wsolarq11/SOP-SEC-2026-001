@@ -3,11 +3,12 @@ document_id: SOP-GEN-2026-003
 title: SOP与规范库 · 系统说明
 category: GEN
 doc_type: reference
-version: 2.0
+version: 2.1
 status: Draft
 author: 段天俊
 approver: 待定
 effective_date: 待定
+requirement_ref: 2026-08 系统说明统一迁移
 ---
 
 # SOP与规范库 · 系统说明
@@ -62,7 +63,7 @@ effective_date: 待定
 新增文档：
 
 1. 在 `sops/` 下新建 md。
-2. 在 `sops/registry.json` 增加一条记录，字段为 `document_id / title / doc_type / domain / version / author / status / source / target_dir`。
+2. 在 `sops/registry.json` 增加一条记录，字段为 `document_id / title / doc_type / domain / version / author / status / source / target_dir`；可选事实字段为 `requirement_ref / reviewer / reviewed_at / approved_at / last_published_at`，旧条目可缺省。
 3. 运行 `python tools/kb.py registry-render --write` 更新登记表。
 4. 运行 `python tools/kb.py check` 和 `python tools/kb.py publish --dry-run` 验证。
 
@@ -92,6 +93,7 @@ effective_date: 待定
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| 2.1 | 2026-08-27 | 增加产线事实层可选字段与发布日志说明 |
 | 2.0 | 2026-08-26 | 统一文档号为 SOP- 前缀；明确不登记 L1/L2/L3、签批全手工、停用文档从 registry 删除 |
 | 1.5 | 2026-08-26 | 发布语义调整为 Draft/Approved 可发布，Draft 发布不代表已签批 |
 | 1.4 | 2026-08-25 | 源文件统一移入 sops/，删除口语化 AI 使用说明，命名规则改为以 front matter 与 registry 为准 |

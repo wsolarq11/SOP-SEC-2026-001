@@ -36,7 +36,7 @@
 | 03-DESK-桌面终端 | DESK | 终端 / 桌面 / 服务台 SOP |
 | 04-INFRA-基础设施 | INFRA | 服务器 / 网络 / 存储 / 云平台 SOP |
 | 05-DR-灾难恢复 | DR | 备份 / 容灾 / 演练 SOP |
-| 06-GEN-通用 | GEN | 跨域基础规范（standard / guideline）|
+| 06-GEN-通用 | GEN | 跨域基础规范与流程（standard / guideline / procedure） |
 | 07-参考与说明 | 跨域 | 描述性文档（reference）：系统说明、使用指南、FAQ |
 
 ## 发布契约
@@ -48,14 +48,15 @@
 
 <!-- generated from sops/registry.json; do not edit by hand -->
 ## 已分配编号
-| 文档号 | 标题 | 类型 | 域名 | 版本 | 编制人 | 状态 | 源文件 | 目标目录 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| SOP-GEN-2026-001 | 合规与标准定位 | reference | GEN | 1.2 | 段天俊 | Draft | sops/SOP-GEN-2026-001-合规与标准定位.md | 07-参考与说明 |
-| SOP-GEN-2026-002 | 表格排版规范 | standard | GEN | 1.2 | 段天俊 | Draft | sops/SOP-GEN-2026-002-表格排版规范.md | 06-GEN-通用 |
-| SOP-SEC-2026-001 | 安防平台人员变动信息处理标准作业程序书 | procedure | SEC | 1.2 | 段天俊 | Draft | sops/SOP-SEC-2026-001.md | 01-SEC-信息安全 |
-| SOP-DESK-2026-001 | 员工电脑配给与收回作业程序 | procedure | DESK | 3.3 | 段天俊 | Draft | sops/SOP-DESK-2026-001.md | 03-DESK-桌面终端 |
-| SOP-DESK-2026-002 | 员工电脑配给与收回 · 支撑资料清单 | reference | DESK | 2.4 | 段天俊 | Draft | sops/SOP-DESK-2026-002.md | 03-DESK-桌面终端 |
-| SOP-GEN-2026-003 | SOP与规范库 · 系统说明 | reference | GEN | 2.0 | 段天俊 | Draft | sops/SOP-通用-系统说明.md | 07-参考与说明 |
+| 文档号 | 标题 | 类型 | 域名 | 版本 | 编制人 | 状态 | 源文件 | 目标目录 | 需求来源 | 签批人 | 生效日期 | 评审人 | 评审时间 | 签批时间 | 最近发布 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| SOP-GEN-2026-001 | 合规与标准定位 | reference | GEN | 1.2 | 段天俊 | Draft | sops/SOP-GEN-2026-001-合规与标准定位.md | 07-参考与说明 | 历史存量（知识库初始化） | 待定 | 待定 |  |  |  |  |
+| SOP-GEN-2026-002 | 表格排版规范 | standard | GEN | 1.2 | 段天俊 | Draft | sops/SOP-GEN-2026-002-表格排版规范.md | 06-GEN-通用 | 历史存量（2026-08 表格规范收敛） | 待定 | 待定 |  |  |  |  |
+| SOP-SEC-2026-001 | 安防平台人员变动信息处理标准作业程序书 | procedure | SEC | 1.2 | 段天俊 | Draft | sops/SOP-SEC-2026-001.md | 01-SEC-信息安全 | 历史存量（安防平台作业程序） | 待定 | 待定 |  |  |  |  |
+| SOP-DESK-2026-001 | 员工电脑配给与收回作业程序 | procedure | DESK | 3.3 | 段天俊 | Draft | sops/SOP-DESK-2026-001.md | 03-DESK-桌面终端 | 历史存量（员工电脑作业程序） | 待定 | 待定 |  |  |  |  |
+| SOP-DESK-2026-002 | 员工电脑配给与收回 · 支撑资料清单 | reference | DESK | 2.4 | 段天俊 | Draft | sops/SOP-DESK-2026-002.md | 03-DESK-桌面终端 | 历史存量（员工电脑支撑清单） | 待定 | 待定 |  |  |  |  |
+| SOP-GEN-2026-003 | SOP与规范库 · 系统说明 | reference | GEN | 2.1 | 段天俊 | Draft | sops/SOP-通用-系统说明.md | 07-参考与说明 | 2026-08 系统说明统一迁移 | 待定 | 待定 |  |  |  |  |
+| SOP-GEN-2026-004 | AI 会话知识库维护流程 | procedure | GEN | 1.0 | 段天俊 | Draft | .sop/AI会话知识库维护流程.md | 06-GEN-通用 | 2026-08-26 会话维护流程归位决策 | 待定 | 待定 |  |  |  | 2026-08-27 |
 
 ## 分配规则
 - 新增时：取目标域名 + 当前年，查 sops/registry.json 该「域名+年」最大序号 +1，不足 3 位前补零；如历史编号已删除，以 git 历史判断不回收。

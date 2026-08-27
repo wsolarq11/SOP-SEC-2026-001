@@ -1,4 +1,5 @@
 ---
+document_id: SOP-GEN-2026-004
 title: AI 会话知识库维护流程
 category: GEN
 doc_type: procedure
@@ -7,6 +8,7 @@ status: Draft
 author: 段天俊
 approver: 待定
 effective_date: 待定
+requirement_ref: 2026-08-26 会话维护流程归位决策
 ---
 
 # AI 会话知识库维护流程
