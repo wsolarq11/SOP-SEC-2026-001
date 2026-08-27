@@ -16,9 +16,9 @@
 - 会话维护流程已归位 `.sop/AI会话知识库维护流程.md`，并登记为 SOP-GEN-2026-004。
 - 2026-08-27 归一化自检：`check`、`registry-render --check`、`manifest` 均通过；`test` 34 passed；历史会话目录统一为 `sessionlogs/`；产线统一路线闭环并按依赖方向串入非文档资产。
 - 2026-08-27 事实收口：`registry.json` 为唯一事实源，`registry-render --write` 单向生成 front matter/REGISTRY.md；发布事实写入 `sops/publish-history.jsonl` 安全摘要并由 CI 提交回 master；`check`、`test` 36 passed、`publish --dry-run` 通过；会话日志见 `sessionlogs/2026-08-27-165200-sessionlog.md`。
+- 2026-08-27 17:00：本次产线改动提交为 `3d4ba4d` 并推送 `origin/master`；工作树已清洁，飞书 bundle 备份完成。
 
 ## 未收口
 
 - `.trellis/scripts/` 未纳入工具链审计，多个文件超过 500 行；作为上游模板运行时豁免，已在总览与 AGENTS 说明。
 - Trellis workspace journal 未记录，`00-bootstrap-guidelines` 仍在 `in_progress`。
-- 工作区仍有未提交的产线工具链与文档改动，git 提交/推送作为部署动作待用户确认。
