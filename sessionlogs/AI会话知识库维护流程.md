@@ -1,6 +1,6 @@
 # AI 会话知识库维护流程
 
-正式版已归位：[.sop/AI会话知识库维护流程.md](../.sop/AI会话知识库维护流程.md)
+正式版已归位：[sop/AI会话知识库维护流程.md](../sop/AI会话知识库维护流程.md)
 
 历史基线：[BASELINE.md](./BASELINE.md)
 

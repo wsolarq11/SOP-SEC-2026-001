@@ -33,7 +33,7 @@ AGENTS.md — SOP 知识库工作区指南
 
 二、仓库结构
 sops/ — md 源文件 + registry.json（机器唯一权威）+ REGISTRY.md（生成审计视图，见 §三）
-.sop/ — 会话/治理类 SOP 源，正式纳入发布链时登记 registry；sessionlogs/ 只存历史会话归档，权威基线见 sessionlogs/BASELINE.md
+sop/ — 会话/治理类 SOP 源，正式纳入发布链时登记 registry；sessionlogs/ 只存历史会话归档，权威基线见 sessionlogs/BASELINE.md
 docs/ — 项目总览与口径：docs/项目事实与产线总览.md（事实模型/数据形态/依赖方向/已通线路统一主线）；docs/产线化规划与评估.md、docs/产线词表.md（路线与口径）
 依赖链：工具链、CI、hooks 不是并列资产，而是文档产线节点的依赖与自动化；依赖方向见 docs/项目事实与产线总览.md §2
 tools/ — docx 生成工具链；tools/kb.py — 根入口（check/test/publish/backup/auth/cleanup/registry-render/line/fact/token-bootstrap）：
@@ -81,9 +81,9 @@ backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次�
 产线统一路线已完成缺口闭环：`registry.json` 是唯一事实源，front matter 由 `registry-render --write` 单向生成；`requirement_ref` 全量回填，`fact link/review/signoff/sync` 只写 registry；`token-bootstrap` 可自动首次上传并登记飞书 token（可选同步 `PUBLISH_TOKENS_B64` GitHub secret）；发布日志同时写入仓库外完整日志与仓库内 `sops/publish-history.jsonl` 安全摘要，并回写 `last_published_at`；CI 发布后把发布事实提交回 master；`kb.py line` 已接入 token 缺失阻塞与发布记录条数，CI 输出 line 报告并归档 publish-log。工具链、CI、hooks 已按依赖方向串入文档产线，统一主线见 `docs/项目事实与产线总览.md`。发布入口仍是 `python tools/kb.py publish`，`--bootstrap` 会在缺 token 时自动闭合；活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
 七、标准工作流
 仓库备份初始化（一次性）：python tools/kb.py backup --install，再 python tools/kb.py backup --init --wiki-token <90目录wiki node_token>
-会话/治理类 md 放 `.sop/`；正式纳入发布链时登记 `sops/registry.json` 并运行 `python tools/kb.py registry-render --write` 同步 REGISTRY.md 与 front matter
+会话/治理类 md 放 `sop/`；正式纳入发布链时登记 `sops/registry.json` 并运行 `python tools/kb.py registry-render --write` 同步 REGISTRY.md 与 front matter
 
-编辑/新建 md 源（正式知识库源放 sops/，会话/治理类放 .sop/；系统说明类归 07-参考与说明），正式纳入发布链时同步登记 sops/registry.json（编号、类型、域名、目标目录；发布清单会自动包含该条目），再运行 `python tools/kb.py registry-render --write` 同步 REGISTRY.md 审计表和 front matter
+编辑/新建 md 源（正式知识库源放 sops/，会话/治理类放 sop/；系统说明类归 07-参考与说明），正式纳入发布链时同步登记 sops/registry.json（编号、类型、域名、目标目录；发布清单会自动包含该条目），再运行 `python tools/kb.py registry-render --write` 同步 REGISTRY.md 审计表和 front matter
 登记事实：需求来源 `python tools/kb.py fact link <document_id> <来源>`；评审 `python tools/kb.py fact review <document_id> <评审人> <YYYY-MM-DD>`；真实签批 `python tools/kb.py fact signoff <document_id> <签批人> <生效日期>`；`fact sync <document_id>` 从 registry 单向同步 front matter（不再从 front matter 反写 registry）
 新文档首次发布：`python tools/kb.py token-bootstrap --source <md> [--sync-secret]`，或直接 `python tools/kb.py publish --bootstrap` 自动首次上传并登记 token
 跑 `python tools/kb.py check` 健康检查（front matter 完整性 + registry.json 契约一致性）

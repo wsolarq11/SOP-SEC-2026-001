@@ -255,12 +255,12 @@ class PipelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             log = os.path.join(tmp, "publish-log.jsonl")
             record = publish_log.append_publish(
-                log, ".sop/AI会话知识库维护流程.md", "tok-1"
+                log, "sop/AI会话知识库维护流程.md", "tok-1"
             )
             with open(log, encoding="utf-8") as f:
                 line = json.loads(f.readline())
         self.assertEqual(record["document_id"], "SOP-GEN-2026-004")
-        self.assertEqual(line["source"], ".sop/AI会话知识库维护流程.md")
+        self.assertEqual(line["source"], "sop/AI会话知识库维护流程.md")
         self.assertEqual(line["file_token"], "tok-1")
         self.assertEqual(line["result"], "success")
 
@@ -274,7 +274,7 @@ class PipelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             log = os.path.join(tmp, "publish-log.jsonl")
             record = publish_log.append_publish(
-                log, ".sop/AI会话知识库维护流程.md", "tok-1"
+                log, "sop/AI会话知识库维护流程.md", "tok-1"
             )
         self.assertEqual(len(record["source_hash"]), 64)
         self.assertIn("dirty", record)
@@ -289,13 +289,13 @@ class PipelineTests(unittest.TestCase):
                 "entries": [{
                     "document_id": "SOP-GEN-2026-004",
                     "title": "AI 会话知识库维护流程",
-                    "source": ".sop/AI会话知识库维护流程.md",
+                    "source": "sop/AI会话知识库维护流程.md",
                 }],
             }
             with open(registry_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False)
             record = publish_log.append_publish(
-                log, ".sop/AI会话知识库维护流程.md", "tok-1",
+                log, "sop/AI会话知识库维护流程.md", "tok-1",
                 update_registry=True, registry_path=registry_path
             )
             with open(registry_path, encoding="utf-8") as f:
@@ -308,27 +308,37 @@ class PipelineTests(unittest.TestCase):
             log = os.path.join(tmp, "publish-log.jsonl")
             history = os.path.join(tmp, "publish-history.jsonl")
             record = publish_log.append_publish(
-                log, ".sop/AI会话知识库维护流程.md", "tok-1",
+                log, "sop/AI会话知识库维护流程.md", "tok-1",
                 repo_summary=True, repo_history=history
             )
             with open(history, encoding="utf-8") as f:
                 safe = json.loads(f.readline())
         self.assertEqual(safe["document_id"], "SOP-GEN-2026-004")
-        self.assertEqual(safe["source"], ".sop/AI会话知识库维护流程.md")
+        self.assertEqual(safe["source"], "sop/AI会话知识库维护流程.md")
         self.assertEqual(safe["time"], record["time"])
         self.assertNotIn("file_token", safe)
 
-    def test_line_report_deduplicates_repo_summary_and_token_log(self) -> None:
+    def test_line_report_deduplicates_publish_after_source_rename(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             log = os.path.join(tmp, "publish-log.jsonl")
             history = os.path.join(tmp, "publish-history.jsonl")
             tokens = os.path.join(tmp, "tokens")
             with open(tokens, "w", encoding="utf-8") as f:
-                f.write(".sop/AI会话知识库维护流程.md|md|docx\n")
-            publish_log.append_publish(
-                log, ".sop/AI会话知识库维护流程.md", "tok-1",
-                repo_summary=True, repo_history=history
-            )
+                f.write("sop/AI会话知识库维护流程.md|md|docx\n")
+            old_event = {
+                "document_id": "SOP-GEN-2026-004",
+                "version": "1.0",
+                "source": ".sop/AI会话知识库维护流程.md",
+                "time": "2026-08-27T06:40:05+00:00",
+                "result": "success",
+                "file_token": "tok-1",
+            }
+            new_summary = dict(old_event, source="sop/AI会话知识库维护流程.md")
+            new_summary.pop("file_token")
+            with open(log, "w", encoding="utf-8") as f:
+                f.write(json.dumps(old_event, ensure_ascii=False) + "\n")
+            with open(history, "w", encoding="utf-8") as f:
+                f.write(json.dumps(new_summary, ensure_ascii=False) + "\n")
             proc = subprocess.run(
                 [sys.executable, os.path.join(HERE, "line_report.py"),
                  "--doc", "SOP-GEN-2026-004", "--json", "--log", log,
@@ -372,17 +382,17 @@ class PipelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tokens = os.path.join(tmp, "tokens")
             token_bootstrap._update_tokens(
-                tokens, ".sop/AI会话知识库维护流程.md", "tok-a"
+                tokens, "sop/AI会话知识库维护流程.md", "tok-a"
             )
             first = token_bootstrap._read_tokens(tokens)
             token_bootstrap._update_tokens(
-                tokens, ".sop/AI会话知识库维护流程.md", "tok-b"
+                tokens, "sop/AI会话知识库维护流程.md", "tok-b"
             )
             second = token_bootstrap._read_tokens(tokens)
             with open(tokens, encoding="utf-8") as f:
-                count = sum(line.startswith(".sop/") for line in f)
-        self.assertEqual(first[".sop/AI会话知识库维护流程.md"], "tok-a")
-        self.assertEqual(second[".sop/AI会话知识库维护流程.md"], "tok-b")
+                count = sum(line.startswith("sop/") for line in f)
+        self.assertEqual(first["sop/AI会话知识库维护流程.md"], "tok-a")
+        self.assertEqual(second["sop/AI会话知识库维护流程.md"], "tok-b")
         self.assertEqual(count, 1)
 
     def test_token_bootstrap_backup_token_stays_none(self) -> None:
@@ -391,7 +401,7 @@ class PipelineTests(unittest.TestCase):
             "NONE")
         self.assertEqual(
             token_bootstrap._exclude_backup_token(
-                ".sop/AI会话知识库维护流程.md", "tok"),
+                "sop/AI会话知识库维护流程.md", "tok"),
             "tok")
 
     def test_registry_render_syncs_front_matter_one_way(self) -> None:
@@ -430,7 +440,7 @@ class PipelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             log = os.path.join(tmp, "publish-log.jsonl")
             publish_log.append_publish(
-                log, ".sop/AI会话知识库维护流程.md", "token-should-not-print"
+                log, "sop/AI会话知识库维护流程.md", "token-should-not-print"
             )
             proc = subprocess.run(
                 [sys.executable, os.path.join(HERE, "line_report.py"),

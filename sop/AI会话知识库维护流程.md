@@ -3,7 +3,7 @@ document_id: SOP-GEN-2026-004
 title: AI 会话知识库维护流程
 category: GEN
 doc_type: procedure
-version: 1.0
+version: 1.1
 status: Draft
 author: 段天俊
 approver: 待定
@@ -15,7 +15,7 @@ requirement_ref: 2026-08-26 会话维护流程归位决策
 
 ## 1 目的
 
-本流程用于把一次 AI 工作会话中已确认的结论、决策和治理口径沉淀为知识库 SOP。本文件放在项目根目录 `.sop/`，作为本次会话的可复用记录。
+本流程用于把一次 AI 工作会话中已确认的结论、决策和治理口径沉淀为知识库 SOP。本文件放在项目根目录 `sop/`，作为本次会话的可复用记录。
 
 ## 2 适用范围
 
@@ -39,8 +39,8 @@ requirement_ref: 2026-08-26 会话维护流程归位决策
 
 先区分两类请求：
 
-- “写 SOP 进 `.sop/`”表示在项目根目录的 `.sop/` 下新建会话 SOP，不迁移现有 `sops/`。
-- “把目录改成 `.sop/`”才表示迁移知识库源目录。
+- “写 SOP 进 `sop/`”表示在项目根目录的 `sop/` 下新建会话 SOP，不迁移现有 `sops/`。
+- “把目录改成 `sop/`”才表示迁移知识库源目录。
 
 若请求可能影响现有目录和发布链，先确认，再执行。
 
@@ -61,17 +61,17 @@ requirement_ref: 2026-08-26 会话维护流程归位决策
 
 ### 4.3 放置文件
 
-- 新建文件放入项目根目录 `.sop/`。
+- 新建文件放入项目根目录 `sop/`。
 - 文件名使用清晰的会话主题，例如 `AI会话知识库维护流程.md`。
 - 现有知识库源目录 `sops/` 保持不动。
 
 ### 4.4 登记文档
 
-本文件默认作为会话沉淀文件放在 `.sop/`。若后续需要正式纳入发布链，再按现有主登记表 `sops/registry.json` 登记，并将 `source` 写为 `.sop/<文件名>.md`；不要新建第二套 registry。
+本文件默认作为会话沉淀文件放在 `sop/`。若后续需要正式纳入发布链，再按现有主登记表 `sops/registry.json` 登记，并将 `source` 写为 `sop/<文件名>.md`；不要新建第二套 registry。
 
 ### 4.5 验证
 
-若没有改动现有工具链和 `sops/`，只新增 `.sop/` 文件，运行：
+若没有改动现有工具链和 `sops/`，只新增 `sop/` 文件，运行：
 
 ```bash
 python tools/kb.py check
@@ -87,7 +87,7 @@ python tools/kb.py publish --dry-run
 ## 5 检查
 
 - [ ] 现有 `sops/` 未被移动或改名
-- [ ] 会话 SOP 位于根目录 `.sop/`
+- [ ] 会话 SOP 位于根目录 `sop/`
 - [ ] 未新增与现有主登记表冲突的 registry
 - [ ] 若改动工具链，check / test / publish dry-run 均通过
 - [ ] 若发布链路径改变，已同步 token 和 CI secret
@@ -102,10 +102,11 @@ python tools/kb.py publish --dry-run
 | ISO 新版 | 新版发布前不提及，只写现行版本 |
 | 签批信息 | 全手工维护，工具链不自动填写 |
 | 退役文档 | 从 registry 删除，不保留 Retired 状态 |
-| 源目录 | 维持 `sops/`，会话 SOP 放根目录 `.sop/` |
+| 源目录 | 维持 `sops/`，会话 SOP 放根目录 `sop/` |
 
 ## 版本修订记录
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| 1.1 | 2026-08-27 | 会话/治理类 SOP 源目录由 `.sop/` 改为 `sop/` |
 | 1.0 | 2026-08-26 | 新建 AI 会话知识库维护流程 |

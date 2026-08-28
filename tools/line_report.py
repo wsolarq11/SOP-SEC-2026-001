@@ -36,7 +36,7 @@ def _read_publish_records(log_path: str,
     paths = [log_path, repo_history or repo_history_path(),
              durable_log_path(), legacy_temp_log_path()]
     records: list[dict[str, object]] = []
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[tuple[str, str, str, str]] = set()
     for path in paths:
         if not os.path.isfile(path):
             continue
@@ -51,8 +51,9 @@ def _read_publish_records(log_path: str,
                     continue
                 if not isinstance(data, dict):
                     continue
-                key = (str(data.get("time", "")),
-                       str(data.get("source", "")),
+                key = (str(data.get("document_id", "")),
+                       str(data.get("version", "")),
+                       str(data.get("time", "")),
                        str(data.get("result", "")))
                 if key in seen:
                     continue
