@@ -18,6 +18,7 @@
 - 2026-08-27 事实收口：`registry.json` 为唯一事实源，`registry-render --write` 单向生成 front matter/REGISTRY.md；发布事实写入 `sops/publish-history.jsonl` 安全摘要并由 CI 提交回 master；`check`、`test` 36 passed、`publish --dry-run` 通过；会话日志见 `sessionlogs/2026-08-27-165200-sessionlog.md`。
 - 2026-08-27 17:00：本次产线改动提交为 `3d4ba4d` 并推送 `origin/master`；工作树已清洁，飞书 bundle 备份完成。
 - 2026-08-27：会话/治理类 SOP 源目录由 `.sop/` 改为根目录 `sop/`；`SOP-GEN-2026-004` 版本升至 1.1，registry、token 映射、发布历史与文档路径均已同步。
+- 2026-08-28：目录改名提交 `c5daa56` 已推送 `origin/master`，`PUBLISH_TOKENS_B64` 已同步，工作树清洁。
 
 ## 未收口
 
