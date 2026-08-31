@@ -20,14 +20,8 @@
 set -euo pipefail
 export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if command -v cygpath >/dev/null 2>&1; then
-  SCRIPT_DIR="$(cd "$SCRIPT_DIR" && cygpath -w "$PWD")"
-fi
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-if command -v cygpath >/dev/null 2>&1; then
-  ROOT="$(cd "$ROOT" && cygpath -w "$PWD")"
-fi
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib.sh"
 PY="${PY:-python}"
 
 DRY=0

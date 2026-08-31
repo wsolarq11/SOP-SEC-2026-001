@@ -24,19 +24,9 @@
 set -u
 export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if command -v cygpath >/dev/null 2>&1; then
-  SCRIPT_DIR="$(cd "$SCRIPT_DIR" && cygpath -w "$PWD")"
-fi
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-if command -v cygpath >/dev/null 2>&1; then
-  ROOT="$(cd "$ROOT" && cygpath -w "$PWD")"
-fi
-if [ -n "${PY:-}" ]; then
-  :
-else
-  PY="python"
-fi
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib.sh"
+PY="${PY:-python}"
 TOOLS="$ROOT/tools"
 CONV="$TOOLS/sop_to_docx_stdlib.py"
 CHECK="$TOOLS/check_docs.py"
@@ -44,8 +34,7 @@ SECRETS="$TOOLS/check_secrets.py"
 MANIFEST_GEN="$TOOLS/registry_manifest.py"
 LARK_JSON="$TOOLS/lark_json.py"
 if [ -z "${PUB:-}" ]; then
-  _TEMP="${TEMP:-${TMP:-/tmp}}"
-  PUB="${_TEMP//\\//}/sop-exports/publish"
+  PUB="$(default_pub)"
 fi
 AS="${AS:-user}"
 
@@ -59,6 +48,26 @@ while [[ "${1:-}" == --* ]]; do
   esac
 done
 TARGET="${1:-ALL}"
+
+# 目标过滤：仅当 TARGET 与条目 md/docx 名之一匹配时才处理该条目。
+is_target() {
+  local mdrel="$1" docxname="$2"
+  [ "$TARGET" = "ALL" ] || [ "$mdrel" = "$TARGET" ] || [ "$docxname" = "$TARGET" ]
+}
+
+# 读取上传 token 映射（gitignore 忽略，不入库）到全局 DOCTOK
+load_doctoken() {
+  if [ ! -f "$ROOT/.publish-tokens" ]; then
+    echo "[FAIL] 缺少 $ROOT/.publish-tokens（上传 token 映射），无法发布"
+    exit 1
+  fi
+  while IFS='|' read -r mdrel mdtok docxtok; do
+    [ -z "$mdrel" ] && continue
+    DOCTOK["$mdrel"]="$docxtok"
+  done < <(tr -d "\r" < "$ROOT/.publish-tokens")
+}
+
+declare -A DOCTOK
 
 mkdir -p "$PUB"
 
@@ -92,16 +101,8 @@ if [ "$HAS_DOCX" = "0" ]; then
   exit 0
 fi
 
-# 读取上传 token（gitignore 忽略，不入库）
-declare -A DOCTOK
-if [ ! -f "$ROOT/.publish-tokens" ]; then
-  echo "[FAIL] 缺少 $ROOT/.publish-tokens（上传 token 映射），无法发布"
-  exit 1
-fi
-while IFS='|' read -r mdrel mdtok docxtok; do
-  [ -z "$mdrel" ] && continue
-  DOCTOK["$mdrel"]="$docxtok"
-done < <(tr -d "\r" < "$ROOT/.publish-tokens")
+# 读取上传 token 映射（gitignore 忽略，不入库）
+load_doctoken
 
 # token 自举：缺映射时直接首次上传飞书并登记，不再停在人工补 token
 if [ "$BOOTSTRAP" = "1" ]; then
@@ -115,7 +116,7 @@ if [ "$BOOTSTRAP" = "1" ]; then
     if [ "$docxname" = "NONE" ]; then
       continue
     fi
-    if [ "$TARGET" != "ALL" ] && [ "$mdrel" != "$TARGET" ] && [ "$docxname" != "$TARGET" ]; then
+    if ! is_target "$mdrel" "$docxname"; then
       continue
     fi
     if [ -z "${DOCTOK[$mdrel]:-}" ] || [ "${DOCTOK[$mdrel]}" = "NONE" ]; then
@@ -132,10 +133,7 @@ if [ "$BOOTSTRAP" = "1" ]; then
     done
     unset DOCTOK
     declare -A DOCTOK
-    while IFS='|' read -r mdrel mdtok docxtok; do
-      [ -z "$mdrel" ] && continue
-      DOCTOK["$mdrel"]="$docxtok"
-    done < <(tr -d "\r" < "$ROOT/.publish-tokens")
+    load_doctoken
   fi
 fi
 
@@ -145,7 +143,7 @@ echo "== token 完备性检查 =="
 FAIL=0
 for entry in "${MANIFEST[@]}"; do
   IFS='|' read -r mdrel docxname <<< "$entry"
-  if [ "$TARGET" != "ALL" ] && [ "$mdrel" != "$TARGET" ] && [ "$docxname" != "$TARGET" ]; then
+  if ! is_target "$mdrel" "$docxname"; then
     continue
   fi
   if [ "$docxname" != "NONE" ] && { [ -z "${DOCTOK[$mdrel]:-}" ] || [ "${DOCTOK[$mdrel]}" = "NONE" ]; }; then
@@ -166,7 +164,7 @@ OK=0
 declare -A BUILT_OK
 for entry in "${MANIFEST[@]}"; do
   IFS='|' read -r mdrel docxname <<< "$entry"
-  if [ "$TARGET" != "ALL" ] && [ "$mdrel" != "$TARGET" ] && [ "$docxname" != "$TARGET" ]; then
+  if ! is_target "$mdrel" "$docxname"; then
     continue
   fi
   echo "--- $mdrel ---"
@@ -208,7 +206,7 @@ UPDATED_REGISTRY=0
 cd "$PUB"  # lark-cli --file 要求 cwd 相对路径
 for entry in "${MANIFEST[@]}"; do
   IFS='|' read -r mdrel docxname <<< "$entry"
-  if [ "$TARGET" != "ALL" ] && [ "$mdrel" != "$TARGET" ] && [ "$docxname" != "$TARGET" ]; then
+  if ! is_target "$mdrel" "$docxname"; then
     continue
   fi
   if [ "${BUILT_OK[$mdrel]:-}" != "1" ]; then

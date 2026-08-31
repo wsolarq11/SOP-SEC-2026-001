@@ -10,19 +10,8 @@
 # =============================================================
 set -u
 
-normalize_path() {
-  local p="$1"
-  if command -v cygpath >/dev/null 2>&1; then
-    cygpath -w "$p"
-  else
-    printf '%s\n' "$p"
-  fi
-}
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(normalize_path "$SCRIPT_DIR")"
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ROOT="$(normalize_path "$ROOT")"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib.sh"
 SCRIPT="$SCRIPT_DIR/check_git_auth.sh"
 TMP="$(mktemp -d)"
 HOME_TMP="$TMP/home"

@@ -17,6 +17,7 @@ import sys
 from collections.abc import Sequence
 
 import lark_json
+import publish_tokens
 import registry_lib
 import sop_to_docx_stdlib
 
@@ -93,34 +94,12 @@ def _target_node(cli: str, space_id: str, target_dir: str,
     return str(node.get("node_token", ""))
 
 
-def _docx_output_name(source: str) -> str:
-    return os.path.splitext(os.path.basename(source))[0] + ".docx"
-
-
 def _entry(source: str) -> dict[str, str]:
-    entries, errors = registry_lib.parse_registry()
-    if errors:
-        raise RuntimeError("registry parse failed: %s" % "; ".join(errors))
-    normalized = source.replace(os.sep, "/")
-    for entry in entries:
-        if entry.get("source", "").replace(os.sep, "/") == normalized:
-            return entry
-    raise KeyError("source not registered: %s" % source)
+    return registry_lib.entry_by_source(source)
 
 
 def _read_tokens(path: str) -> dict[str, str]:
-    result: dict[str, str] = {}
-    if not os.path.isfile(path):
-        return result
-    with open(path, encoding="utf-8") as f:
-        for raw in f:
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            fields = line.split("|")
-            if len(fields) >= 3:
-                result[fields[0]] = fields[2]
-    return result
+    return publish_tokens.read_publish_tokens(path)
 
 
 def _repo_name() -> str:
@@ -157,26 +136,7 @@ def _sync_ci_secret() -> None:
 
 
 def _update_tokens(path: str, source: str, token: str) -> None:
-    lines = []
-    replaced = False
-    if os.path.isfile(path):
-        with open(path, encoding="utf-8") as f:
-            lines = f.read().splitlines(keepends=True)
-    output = []
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        fields = stripped.split("|")
-        if fields and fields[0] == source:
-            output.append("%s|NONE|%s\n" % (source, token))
-            replaced = True
-            continue
-        output.append(line)
-    if not replaced:
-        output.append("%s|NONE|%s\n" % (source, token))
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
-        f.write("".join(output))
+    publish_tokens.write_publish_token(path, source, token)
 
 
 def _exclude_backup_token(source: str, token: str) -> str:
@@ -187,7 +147,7 @@ def _exclude_backup_token(source: str, token: str) -> str:
 
 
 def _build_docx(source: str, pub: str) -> str:
-    docxname = _docx_output_name(source)
+    docxname = registry_lib.docx_output_name(source)
     output = os.path.join(pub, docxname)
     os.makedirs(pub, exist_ok=True)
     sop_to_docx_stdlib.build(os.path.join(registry_lib.ROOT, source), output)
@@ -248,13 +208,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         space_id = args.space_id or _space_id(cli, args.as_identity)
         parent = _target_node(cli, space_id, target_dir, args.as_identity)
         existing = _node_by_title(cli, space_id, parent,
-                                  _docx_output_name(args.source),
+                                  registry_lib.docx_output_name(args.source),
                                   args.as_identity)
         if existing:
             token = str(existing.get("obj_token", ""))
             if not token:
                 raise RuntimeError("existing wiki file has no obj_token")
-            print("[OK] 复用已存在节点: %s" % _docx_output_name(args.source))
+            print("[OK] 复用已存在节点: %s" % registry_lib.docx_output_name(args.source))
             if args.dry_run:
                 print("[DRY] 将登记已有 file token，不写入")
                 return 0

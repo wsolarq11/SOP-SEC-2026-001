@@ -17,6 +17,7 @@ from publish_log import (
     legacy_temp_log_path,
     repo_history_path,
 )
+import publish_tokens
 from registry_lib import ROOT, parse_registry
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -84,18 +85,7 @@ def _latest_publish(records: list[dict[str, object]],
 
 
 def _read_tokens(path: str) -> dict[str, str]:
-    result: dict[str, str] = {}
-    if not os.path.isfile(path):
-        return result
-    with open(path, encoding="utf-8") as f:
-        for raw in f:
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            fields = line.split("|")
-            if len(fields) >= 3:
-                result[fields[0]] = fields[2]
-    return result
+    return publish_tokens.read_publish_tokens(path)
 
 
 def _has_published_fact(entry: dict[str, str],

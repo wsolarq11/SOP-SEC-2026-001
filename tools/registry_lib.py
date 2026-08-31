@@ -159,14 +159,32 @@ def _default_registry_path() -> str:
     return os.path.join(ROOT, REGISTRY_REL)
 
 
+def docx_output_name(source: str) -> str:
+    """docx 输出名 = 源文件 basename 的 .md 换成 .docx（全管线唯一规范）。"""
+    return os.path.splitext(os.path.basename(source.replace(os.sep, "/")))[0] + ".docx"
+
+
+def entry_by_source(source: str, entries: Sequence[dict[str, str]] | None = None
+                    ) -> dict[str, str]:
+    """Return the registry entry whose normalized source matches, else KeyError."""
+    normalized = source.replace(os.sep, "/")
+    entries = entries if entries is not None else parse_registry()[0]
+    for entry in entries:
+        if entry.get("source", "").replace(os.sep, "/") == normalized:
+            return entry
+    raise KeyError("source not registered: %s" % source)
+
+
 def parse_registry(
     registry_path: str | os.PathLike[str] | None = None,
 ) -> tuple[list[dict[str, str]], list[str]]:
     """Parse the allocation table; JSON is preferred over Markdown.
 
     An explicit .json path is parsed as JSON; any other explicit path is parsed
-    as Markdown. Returns (entries, errors); business validation belongs to
-    validate_registry_entries.
+    as Markdown. Markdown (REGISTRY.md) parsing is kept only as a legacy
+    back-compat path for reading old commits / bundles; sops/registry.json is
+    the current authoritative machine source. Returns (entries, errors);
+    business validation belongs to validate_registry_entries.
     """
     if registry_path is None:
         registry_path = _default_registry_path()
@@ -334,7 +352,7 @@ def _register_source(entry: dict[str, str], registered_sources: set[str],
         fail("%s: 源文件缺失: %s" % (did, src))
         return False
     registered_sources.add(src.replace(os.sep, "/"))
-    docx_name = os.path.splitext(os.path.basename(src))[0] + ".docx"
+    docx_name = docx_output_name(src)
     if docx_name in seen_docx_names:
         fail("%s: docx 输出名冲突: %s" % (did, docx_name))
     seen_docx_names.add(docx_name)

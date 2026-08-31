@@ -15,7 +15,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 
-from registry_lib import REGISTRY_JSON_REL, ROOT, parse_registry
+from registry_lib import REGISTRY_JSON_REL, ROOT, entry_by_source, parse_registry
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -77,14 +77,7 @@ def _source_hash(source: str) -> str:
 
 
 def _entry_for_source(source: str) -> dict[str, str]:
-    normalized = source.replace(os.sep, "/")
-    entries, errors = parse_registry()
-    if errors:
-        raise RuntimeError("registry parse failed: %s" % "; ".join(errors))
-    for entry in entries:
-        if entry.get("source", "").replace(os.sep, "/") == normalized:
-            return entry
-    raise KeyError("source not registered: %s" % source)
+    return entry_by_source(source)
 
 
 def _update_registry_last_published(document_id: str, published_on: str,
@@ -114,15 +107,10 @@ def _write_record(log_path: str, record: dict[str, str]) -> None:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-def append_publish(log_path: str, source: str, file_token: str,
-                   result: str = "success", update_registry: bool = False,
-                   registry_path: str | None = None,
-                   persist: bool = False,
-                   repo_summary: bool = False,
-                   repo_history: str | None = None) -> dict[str, str]:
-    entry = _entry_for_source(source)
-    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-    record = {
+def build_record(entry: dict[str, str], source: str, file_token: str,
+                 result: str, now: str) -> dict[str, str]:
+    """Assemble the machine record for one publish event (token included)."""
+    return {
         "document_id": entry.get("document_id", ""),
         "version": entry.get("version", ""),
         "source": source.replace(os.sep, "/"),
@@ -133,18 +121,57 @@ def append_publish(log_path: str, source: str, file_token: str,
         "result": result,
         "file_token": file_token,
     }
+
+
+def write_record(log_path: str, record: dict[str, str]) -> None:
+    """Append a record to the given JSONL log."""
     _write_record(log_path, record)
+
+
+def persist_record(record: dict[str, str], log_path: str) -> None:
+    """Append to the durable user log unless it equals the primary log."""
+    durable = durable_log_path()
+    if os.path.abspath(durable) != os.path.abspath(log_path):
+        write_record(durable, record)
+
+
+def write_repo_summary(record: dict[str, str],
+                       repo_history: str | None = None) -> None:
+    """Append a token-free summary to the versioned repo history log."""
+    safe_record = {key: value for key, value in record.items()
+                   if key != "file_token"}
+    write_record(repo_history or repo_history_path(), safe_record)
+
+
+def update_last_published(document_id: str, published_on: str,
+                          registry_path: str | None = None) -> None:
+    """Write last_published_at for one document into registry.json."""
+    _update_registry_last_published(document_id, published_on, registry_path)
+
+
+def append_publish(log_path: str, source: str, file_token: str,
+                   result: str = "success", update_registry: bool = False,
+                   registry_path: str | None = None,
+                   persist: bool = False,
+                   repo_summary: bool = False,
+                   repo_history: str | None = None) -> dict[str, str]:
+    """Append a publish record, then apply the requested orthogonal side effects.
+
+    The optional flags select which of the independent follow-ups run; each is
+    a distinct, explicitly named operation (write_record / persist_record /
+    write_repo_summary / update_last_published).
+    """
+    entry = _entry_for_source(source)
+    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    record = build_record(entry, source, file_token, result, now)
+    write_record(log_path, record)
     if persist:
-        durable = durable_log_path()
-        if os.path.abspath(durable) != os.path.abspath(log_path):
-            _write_record(durable, record)
+        persist_record(record, log_path)
     if repo_summary:
-        safe_record = {key: value for key, value in record.items()
-                       if key != "file_token"}
-        _write_record(repo_history or repo_history_path(), safe_record)
+        write_repo_summary(record, repo_history)
     if update_registry:
-        _update_registry_last_published(entry.get("document_id", ""),
-                                        now[:10], registry_path)
+        update_last_published(entry.get("document_id", ""), now[:10],
+                              registry_path)
     return record
 
 

@@ -24,6 +24,8 @@ import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+import publish_tokens
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
@@ -55,20 +57,9 @@ def run_lark(args: list[str]) -> dict[str, object]:
 
 
 def read_target_tokens() -> tuple[str, str]:
-    wiki = ""
-    folder = ""
-    if not TOKEN_FILE.is_file():
-        return wiki, folder
-    for raw in TOKEN_FILE.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, _, rest = line.partition("|")
-        value = rest.split("|", 1)[0].strip()
-        if key == "BACKUP_WIKI":
-            wiki = value
-        elif key == "BACKUP_FOLDER":
-            folder = value
+    tokens = publish_tokens.read_publish_tokens(str(TOKEN_FILE))
+    wiki = tokens.get("BACKUP_WIKI", "")
+    folder = tokens.get("BACKUP_FOLDER", "")
     return wiki, folder
 
 

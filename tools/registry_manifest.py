@@ -22,6 +22,7 @@ from registry_lib import (
     PUBLISHABLE_STATUSES,
     REGISTRY_JSON_REL,
     REGISTRY_REL,
+    docx_output_name,
     parse_registry,
     validate_registry_entries,
 )
@@ -29,10 +30,6 @@ from registry_lib import (
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-
-def _docx_name(source: str) -> str:
-    return os.path.splitext(os.path.basename(source))[0] + ".docx"
 
 
 def _manifest_lines(entries: Sequence[dict[str, str]]) -> list[str]:
@@ -46,7 +43,7 @@ def _manifest_lines(entries: Sequence[dict[str, str]]) -> list[str]:
             print("[FAIL] 发布清单源文件重复: %s" % source)
             sys.exit(1)
         seen_sources.add(source)
-        lines.append("%s|%s" % (source, _docx_name(source)))
+        lines.append("%s|%s" % (source, docx_output_name(source)))
     return lines
 
 

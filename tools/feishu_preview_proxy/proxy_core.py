@@ -38,6 +38,7 @@ class Config(TypedDict, total=False):
     connect_timeout: int
     read_timeout: int
     routes: dict[str, str]
+    cors_hosts: set[str]
 
 
 DEFAULT_CONFIG: Config = {
@@ -53,6 +54,7 @@ DEFAULT_CONFIG: Config = {
         "internal-api-lark-api.feishu.cn": "api-lark-api.feishu.cn",
         "weboffice.feishu-3rd-party-services.com": "weboffice.feishuapp.cn",
     },
+    "cors_hosts": {"internal-api-lark-api.feishu.cn"},
 }
 
 
@@ -74,6 +76,20 @@ def _load_routes(data: dict[str, object]) -> dict[str, str]:
             if isinstance(key, str) and isinstance(value, str)}
 
 
+def _load_cors_hosts(data: dict[str, object]) -> set[str]:
+    raw = data.get("cors_hosts")
+    if raw is None:
+        return set(DEFAULT_CONFIG["cors_hosts"])
+    if not isinstance(raw, list):
+        raise ValueError("config cors_hosts must be a list of strings, got %s"
+                         % type(raw).__name__)
+    invalid = [item for item in raw if not isinstance(item, str)]
+    if invalid:
+        raise ValueError("config cors_hosts must contain only strings: %s"
+                         % invalid)
+    return {str(item) for item in raw if isinstance(item, str)}
+
+
 def load_config(path: str | Path) -> Config:
     text = Path(path).read_text(encoding="utf-8")
     data = json.loads(text)
@@ -82,9 +98,10 @@ def load_config(path: str | Path) -> Config:
                          % (path, type(data).__name__))
     config: Config = {**DEFAULT_CONFIG}
     for key, value in data.items():
-        if key in DEFAULT_CONFIG:
+        if key in DEFAULT_CONFIG and key != "routes" and key != "cors_hosts":
             config[key] = value  # type: ignore[assignment]
     config["routes"] = _load_routes(data)
+    config["cors_hosts"] = _load_cors_hosts(data)
     return config
 
 
@@ -204,7 +221,7 @@ def _exchange_request(client: BufferedSocket, upstream: BufferedSocket,
     upstream.sock.sendall(rewrite_request(request_line, headers, body))
     response_head, response_headers, status_code = read_response_head(upstream)
     _log_response(base, response_head)
-    if host == "internal-api-lark-api.feishu.cn":
+    if host in config["cors_hosts"]:
         origin = header_value(headers, "Origin")
         response_head = add_cors_headers(response_head, origin, headers)
     client.sock.sendall(response_head)

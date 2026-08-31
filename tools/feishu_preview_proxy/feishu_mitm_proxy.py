@@ -13,57 +13,13 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from proxy_certs import build_ext_file, ensure_certs, openssl
 from proxy_core import (
     DEFAULT_CONFIG,
-    build_server_context,
     default_base,
-    handle,
     load_config,
-    log_event,
     run_server,
     setup,
-    write_pac,
 )
-from proxy_http import (
-    BufferedSocket,
-    add_cors_headers,
-    forward_response_body,
-    has_header,
-    header_value,
-    parse_headers,
-    read_chunked,
-    read_request,
-    read_response_head,
-    rewrite_request,
-    safe_headers,
-)
-
-__all__ = [
-    "DEFAULT_CONFIG",
-    "BufferedSocket",
-    "add_cors_headers",
-    "build_ext_file",
-    "build_server_context",
-    "default_base",
-    "ensure_certs",
-    "forward_response_body",
-    "handle",
-    "has_header",
-    "header_value",
-    "load_config",
-    "log_event",
-    "openssl",
-    "parse_headers",
-    "read_chunked",
-    "read_request",
-    "read_response_head",
-    "rewrite_request",
-    "run_server",
-    "safe_headers",
-    "setup",
-    "write_pac",
-]
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:

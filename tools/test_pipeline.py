@@ -22,8 +22,19 @@ if os.path.join(HERE, "feishu_preview_proxy") not in sys.path:
 
 import check_secrets
 import fact_ops
-import feishu_mitm_proxy as feishu_proxy
 import line_report
+import proxy_certs
+from proxy_core import (
+    DEFAULT_CONFIG,
+    BufferedSocket,
+    add_cors_headers,
+    ensure_certs,
+    forward_response_body,
+    load_config,
+    rewrite_request,
+    safe_headers,
+    write_pac,
+)
 import publish_log
 import registry_lib
 import registry_render
@@ -529,7 +540,7 @@ class PipelineTests(unittest.TestCase):
 
 class FeishuPreviewProxyTests(unittest.TestCase):
     def test_default_routes_cover_three_preview_hosts(self) -> None:
-        routes = feishu_proxy.DEFAULT_CONFIG["routes"]
+        routes = DEFAULT_CONFIG["routes"]
         self.assertEqual(set(routes), {
             "internal-api-drive-stream.feishu.cn",
             "internal-api-lark-api.feishu.cn",
@@ -541,15 +552,15 @@ class FeishuPreviewProxyTests(unittest.TestCase):
             path = os.path.join(tmp, "config.json")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump({"routes": {"example.test": "upstream.test"}}, f)
-            config = feishu_proxy.load_config(path)
+            config = load_config(path)
         self.assertEqual(config["routes"], {"example.test": "upstream.test"})
         self.assertEqual(config["listen_port"], 18080)
 
     def test_pac_generation_contains_configured_hosts_and_port(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            config = dict(feishu_proxy.DEFAULT_CONFIG)
+            config = dict(DEFAULT_CONFIG)
             config["listen_port"] = 19090
-            pac = feishu_proxy.write_pac(Path(tmp), config)
+            pac = write_pac(Path(tmp), config)
             text = pac.read_text(encoding="utf-8")
         self.assertIn("internal-api-drive-stream.feishu.cn", text)
         self.assertIn("PROXY 127.0.0.1:19090", text)
@@ -558,12 +569,12 @@ class FeishuPreviewProxyTests(unittest.TestCase):
     def test_ensure_certs_rebuilds_leaf_when_routes_change(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            first = feishu_proxy.ensure_certs(base, {
+            first = ensure_certs(base, {
                 "old-internal.example": "public.example",
             })
             self.assertIn("DNS:old-internal.example",
                           self._leaf_san(base, first))
-            second = feishu_proxy.ensure_certs(base, {
+            second = ensure_certs(base, {
                 "new-internal.example": "public.example",
             })
             second_san = self._leaf_san(base, second)
@@ -571,7 +582,7 @@ class FeishuPreviewProxyTests(unittest.TestCase):
             self.assertNotIn("DNS:old-internal.example", second_san)
 
     def _leaf_san(self, base: Path, cert_dir: Path) -> str:
-        proc = feishu_proxy.openssl([
+        proc = proxy_certs.openssl([
             "x509", "-in", str(cert_dir / "leaf.crt"),
             "-noout", "-ext", "subjectAltName",
         ], cert_dir)
@@ -583,7 +594,7 @@ class FeishuPreviewProxyTests(unittest.TestCase):
             (b"Authorization", b"Bearer token"),
             (b"Host", b"example.test"),
         ]
-        text = feishu_proxy.safe_headers(headers)
+        text = safe_headers(headers)
         self.assertNotIn("session", text)
         self.assertNotIn("Bearer", text)
         self.assertIn("Host=", text)
@@ -591,7 +602,7 @@ class FeishuPreviewProxyTests(unittest.TestCase):
     def test_cors_headers_are_injected(self) -> None:
         head = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
         origin = b"https://xcn87k1zyro7.feishu.cn"
-        out = feishu_proxy.add_cors_headers(head, origin, [(b"Origin", origin)])
+        out = add_cors_headers(head, origin, [(b"Origin", origin)])
         self.assertIn(b"Access-Control-Allow-Origin: " + origin, out)
         self.assertIn(b"Content-Type: application/json", out)
 
@@ -601,14 +612,14 @@ class FeishuPreviewProxyTests(unittest.TestCase):
             (b"Host", b"internal-api-drive-stream.feishu.cn"),
             (b"Proxy-Connection", b"keep-alive"),
         ]
-        out = feishu_proxy.rewrite_request(request_line, headers, b"")
+        out = rewrite_request(request_line, headers, b"")
         self.assertIn(b"Host: internal-api-drive-stream.feishu.cn", out)
         self.assertNotIn(b"Proxy-Connection", out)
 
     def test_forward_response_body_streams_content_length(self) -> None:
-        upstream = feishu_proxy.BufferedSocket(FakeSocket(b"hello"))
+        upstream = BufferedSocket(FakeSocket(b"hello"))
         client = RecordingClient()
-        feishu_proxy.forward_response_body(
+        forward_response_body(
             upstream,
             client,
             b"GET",
@@ -619,9 +630,9 @@ class FeishuPreviewProxyTests(unittest.TestCase):
 
     def test_forward_response_body_streams_chunked(self) -> None:
         body = b"5\r\nhello\r\n0\r\n\r\n"
-        upstream = feishu_proxy.BufferedSocket(FakeSocket(body))
+        upstream = BufferedSocket(FakeSocket(body))
         client = RecordingClient()
-        feishu_proxy.forward_response_body(
+        forward_response_body(
             upstream,
             client,
             b"GET",
