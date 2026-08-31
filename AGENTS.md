@@ -81,6 +81,7 @@ backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次�
 六、当前状态（2026-08-27）
 产线统一路线已完成缺口闭环：`registry.json` 是唯一事实源，front matter 由 `registry-render --write` 单向生成；`requirement_ref` 全量回填，`fact link/review/signoff/sync` 只写 registry；`token-bootstrap` 可自动首次上传并登记飞书 token（可选同步 `PUBLISH_TOKENS_B64` GitHub secret）；发布日志同时写入仓库外完整日志与仓库内 `sops/publish-history.jsonl` 安全摘要，并回写 `last_published_at`；CI 发布后把发布事实提交回 master；`kb.py line` 已接入 token 缺失阻塞与发布记录条数，CI 输出 line 报告并归档 publish-log。工具链、CI、hooks 已按依赖方向串入文档产线，统一主线见 `docs/项目事实与产线总览.md`。发布入口仍是 `python tools/kb.py publish`，`--bootstrap` 会在缺 token 时自动闭合；活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
 七、标准工作流
+开工必读：进入本工作区时，先读 `sessionlogs/` 最新一份 `*-sessionlog.md` 与 `sessionlogs/BASELINE.md`，以承接上次工作上下文（工作日志即跨会话记忆，勿跳过；存在即应察觉）
 仓库备份初始化（一次性）：python tools/kb.py backup --install，再 python tools/kb.py backup --init --wiki-token <90目录wiki node_token>
 会话/治理类 md 放 `sop/`；正式纳入发布链时登记 `sops/registry.json` 并运行 `python tools/kb.py registry-render --write` 同步 REGISTRY.md 与 front matter
 
