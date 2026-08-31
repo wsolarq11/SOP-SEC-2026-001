@@ -3,11 +3,10 @@ document_id: SOP-GEN-2026-003
 title: SOP与规范库 · 系统说明
 category: GEN
 doc_type: reference
-version: 2.1
+version: 1.0
 status: Draft
-author: 段天俊
-approver: 待定
-effective_date: 待定
+author: 
+approver: 
 requirement_ref: 2026-08 系统说明统一迁移
 ---
 
@@ -93,11 +92,4 @@ requirement_ref: 2026-08 系统说明统一迁移
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
-| 2.1 | 2026-08-27 | 增加产线事实层可选字段与发布日志说明 |
-| 2.0 | 2026-08-26 | 统一文档号为 SOP- 前缀；明确不登记 L1/L2/L3、签批全手工、停用文档从 registry 删除 |
-| 1.5 | 2026-08-26 | 发布语义调整为 Draft/Approved 可发布，Draft 发布不代表已签批 |
-| 1.4 | 2026-08-25 | 源文件统一移入 sops/，删除口语化 AI 使用说明，命名规则改为以 front matter 与 registry 为准 |
-| 1.3 | 2026-08-21 | registry.json 唯一权威、REGISTRY.md 生成视图；md 不再单独上传飞书 |
-| 1.2 | 2026-08-13 | 命名规范改为 ISO 语义式：SOP-<域名>-<年>-<序号>，新增域名代码表与 REGISTRY 编号索引 |
-| 1.1 | 2026-08-12 | 分类体系调整为面向企业 IT：基础设施/信息安全/应用系统/终端桌面/数据容灾/通用 |
-| 1.0 | 2026-08-12 | 初始化知识库与系统说明 |
+|  |  |  |

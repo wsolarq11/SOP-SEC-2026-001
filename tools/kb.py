@@ -13,7 +13,8 @@ Usage:
   python tools/kb.py fact sync <document_id>
   python tools/kb.py token-bootstrap --source <md> [--dry-run] [--sync-secret]
   python tools/kb.py build <input.md> <output.docx>
-  python tools/kb.py publish [--dry-run] [target]
+  python tools/kb.py publish [--dry-run] [--bootstrap] [target]
+  python tools/kb.py ship [--dry-run] [--bootstrap]
   python tools/kb.py backup [args...]
   python tools/kb.py auth [--network] [--fix]
   python tools/kb.py cleanup [--dry-run|--yes]
@@ -43,6 +44,7 @@ _PYTHON_SCRIPTS = {
 
 _SHELL_SCRIPTS = {
     "publish": "publish.sh",
+    "ship": "ship.sh",
     "backup": "backup_commit.sh",
     "auth": "check_git_auth.sh",
 }

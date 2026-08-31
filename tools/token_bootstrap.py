@@ -27,9 +27,20 @@ if hasattr(sys.stdout, "reconfigure"):
 SPACE_NAME = "企业IT-SOP知识库"
 
 
+def _command(cli_args: Sequence[str]) -> list[str]:
+    """Return the subprocess argv for lark-cli.
+
+    On Windows lark-cli is shipped as a .cmd npm shim, which Python's
+    CreateProcess can't launch directly; route through cmd.exe instead.
+    """
+    if os.name == "nt":
+        return ["cmd", "/c"] + list(cli_args)
+    return list(cli_args)
+
+
 def _run_cli(args: Sequence[str]) -> dict[str, object]:
     proc = subprocess.run(
-        list(args),
+        _command(args),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -187,8 +198,8 @@ def _upload_new(cli: str, parent_token: str, docx_path: str,
                 as_identity: str) -> str:
     name = os.path.basename(docx_path)
     proc = subprocess.run(
-        [cli, "drive", "+upload", "--file", "./" + name, "--wiki-token",
-         parent_token, "--as", as_identity, "--format", "json"],
+        _command([cli, "drive", "+upload", "--file", "./" + name, "--wiki-token",
+                  parent_token, "--as", as_identity, "--format", "json"]),
         cwd=os.path.dirname(docx_path) or ".",
         capture_output=True,
         text=True,

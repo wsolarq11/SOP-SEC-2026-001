@@ -38,12 +38,15 @@ def inline_runs(text: str) -> list[tuple[str, bool, bool]]:
 
 
 def _run_properties(base_bold: bool, base_italic: bool, base_color: str | None,
-                    base_sz: int | None, bold: bool, code: bool) -> str:
+                    base_sz: int | None, bold: bool, code: bool,
+                    hidden: bool = False) -> str:
     props = []
     if base_bold or bold:
         props.append("<w:b/>")
     if base_italic:
         props.append("<w:i/>")
+    if hidden:
+        props.append("<w:vanish/>")
     if base_color and not code:
         props.append('<w:color w:val="%s"/>' % base_color)
     if base_sz:
@@ -59,11 +62,12 @@ def _run_properties(base_bold: bool, base_italic: bool, base_color: str | None,
 
 
 def runs_xml(text: str, base_bold: bool = False, base_italic: bool = False,
-             base_color: str | None = None, base_sz: int | None = None) -> str:
+             base_color: str | None = None, base_sz: int | None = None,
+             hidden: bool = False) -> str:
     out = []
     for token, bold, code in inline_runs(text):
         props = _run_properties(base_bold, base_italic, base_color, base_sz,
-                                bold, code)
+                                bold, code, hidden=hidden)
         out.append('<w:r>%s<w:t xml:space="preserve">%s</w:t></w:r>'
                    % (props, esc(token)))
     if not out:
@@ -231,9 +235,31 @@ def _table_properties() -> str:
             % (cellmar, borders))
 
 
+def _render_hidden_row(row: Sequence[str], ncol: int,
+                       col_w: list[int], col_aligns: list[str]) -> str:
+    trpr = ('<w:trPr><w:trHeight w:val="0" w:hRule="exact"/>'
+            '<w:hidden/><w:cantSplit/></w:trPr>')
+    cells = ""
+    for ci in range(ncol):
+        value = row[ci] if ci < len(row) else ""
+        tcpr = ('<w:tcPr><w:tcW w:w="%d" w:type="dxa"/>'
+                '<w:tcMar><w:top w:w="0" w:type="dxa"/>'
+                '<w:bottom w:w="0" w:type="dxa"/></w:tcMar>'
+                '<w:vAlign w:val="center"/></w:tcPr>' % col_w[ci])
+        jc = "center" if ci == 0 else col_aligns[ci]
+        ppr = ('<w:pPr><w:jc w:val="%s"/>'
+               '<w:spacing w:before="0" w:after="0" w:line="0" '
+               'w:lineRule="exact"/><w:rPr><w:vanish/></w:rPr></w:pPr>' % jc)
+        p = "<w:p>%s%s</w:p>" % (ppr, runs_xml(value, hidden=True))
+        cells += "<w:tc>%s%s</w:tc>" % (tcpr, p)
+    return "<w:tr>%s%s</w:tr>" % (trpr, cells)
+
+
 def _render_row(row: Sequence[str], ri: int, ncol: int,
                 col_w: list[int], col_aligns: list[str],
-                header: bool) -> str:
+                header: bool, hidden: bool = False) -> str:
+    if hidden:
+        return _render_hidden_row(row, ncol, col_w, col_aligns)
     is_header = header and ri == 0
     trpr = "<w:trPr><w:cantSplit/>"
     if is_header:
@@ -248,16 +274,19 @@ def _render_row(row: Sequence[str], ri: int, ncol: int,
         tcpr += '<w:vAlign w:val="center"/></w:tcPr>'
         jc = "center" if is_header else col_aligns[ci]
         ppr = '<w:pPr><w:jc w:val="%s"/></w:pPr>' % jc
-        p = "<w:p>%s%s</w:p>" % (ppr, runs_xml(value, base_bold=is_header))
+        p = "<w:p>%s%s</w:p>" % (ppr, runs_xml(value, base_bold=is_header,
+                                                hidden=hidden))
         cells += "<w:tc>%s%s</w:tc>" % (tcpr, p)
     return "<w:tr>%s%s</w:tr>" % (trpr, cells)
 
 
-def table(rows: Sequence[Sequence[str]], header: bool = True) -> str:
+def table(rows: Sequence[Sequence[str]], header: bool = True,
+          hidden_rows: set[int] | None = None) -> str:
     ncol = max(len(row) for row in rows) if rows else 1
     col_w = col_widths(rows, header)
     col_aligns = compute_col_aligns(rows, header)
-    body = "".join(_render_row(row, ri, ncol, col_w, col_aligns, header)
+    body = "".join(_render_row(row, ri, ncol, col_w, col_aligns, header,
+                               hidden=(hidden_rows is not None and ri in hidden_rows))
                    for ri, row in enumerate(rows))
     return "<w:tbl>%s%s%s</w:tbl>" % (_table_properties(),
                                       _table_grid(col_w), body)

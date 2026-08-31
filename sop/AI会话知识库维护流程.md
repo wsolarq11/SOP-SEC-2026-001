@@ -3,11 +3,10 @@ document_id: SOP-GEN-2026-004
 title: AI 会话知识库维护流程
 category: GEN
 doc_type: procedure
-version: 1.1
+version: 1.0
 status: Draft
-author: 段天俊
-approver: 待定
-effective_date: 待定
+author: 
+approver: 
 requirement_ref: 2026-08-26 会话维护流程归位决策
 ---
 
@@ -108,5 +107,4 @@ python tools/kb.py publish --dry-run
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
-| 1.1 | 2026-08-27 | 会话/治理类 SOP 源目录由 `.sop/` 改为 `sop/` |
-| 1.0 | 2026-08-26 | 新建 AI 会话知识库维护流程 |
+|  |  |  |

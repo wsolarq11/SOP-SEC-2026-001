@@ -98,30 +98,64 @@ def _collect_approval_table(lines: Sequence[str]) -> list[list[str]]:
 
 
 def _merge_fm_rows(fm: dict[str, str],
-                   approval_extra: Sequence[Sequence[str]]) -> list[list[str]]:
+                   approval_extra: Sequence[Sequence[str]]) -> tuple[list[list[str]], set[int]]:
     rows = []
+    hidden: set[int] = set()
     for key, value in fm.items():
         if key == "title":
             continue
         if key == "doc_type":
             value = DOC_TYPE_ZH.get(value, value)
+        idx = len(rows)
         rows.append([FM_LABELS.get(key, key), value])
+        if key == "requirement_ref":
+            hidden.add(idx)
     existing = [row[0] for row in rows]
     for label, value in approval_extra:
         if label not in existing and value.strip():
             rows.append([label, value])
             existing.append(label)
-    return rows
+    return rows, hidden
+
+
+_FRONT_MATTER_HIDE_TARGETS = {"front-matter", "文档信息"}
+
+
+def _docx_hide_target(stripped: str) -> str | None:
+    prefix = "<!-- docx-hide: "
+    suffix = " -->"
+    if stripped.startswith(prefix) and stripped.endswith(suffix):
+        return stripped[len(prefix):-len(suffix)].strip()
+    return None
+
+
+def _collect_docx_hides(lines: Sequence[str]) -> tuple[set[str], bool]:
+    hidden_sections: set[str] = set()
+    hide_front_matter = False
+    for line in lines:
+        target = _docx_hide_target(line.strip())
+        if target is None:
+            continue
+        if target in _FRONT_MATTER_HIDE_TARGETS:
+            hide_front_matter = True
+        else:
+            hidden_sections.add(target)
+    return hidden_sections, hide_front_matter
 
 
 class BodyRenderer:
     """Renders the markdown body into OOXML fragments in document order."""
 
-    def __init__(self, fm_rows: Sequence[Sequence[str]]) -> None:
+    def __init__(self, fm_rows: Sequence[Sequence[str]],
+                 hidden_fm_rows: set[int] | None = None,
+                 hidden_sections: set[str] | None = None,
+                 show_front_matter: bool = True) -> None:
         self.body: list[str] = []
-        self.fm_block = table(fm_rows, header=False) if fm_rows else ""
+        self.fm_block = (table(fm_rows, header=False, hidden_rows=hidden_fm_rows)
+                         if fm_rows and show_front_matter else "")
         self.fm_rendered = False
         self.approval_pending = False
+        self.hidden_sections = hidden_sections or set()
 
     def render(self, lines: Sequence[str]) -> str:
         i = 0
@@ -147,7 +181,12 @@ class BodyRenderer:
         if stripped == "---":
             self.body.append(_horizontal_rule())
             return i + 1
+        if stripped.startswith("<!--"):
+            return self._render_comment(lines, i, stripped)
         if re.match(r"^#{1,6} ", stripped):
+            heading = stripped.lstrip("#").strip()
+            if heading in self.hidden_sections:
+                return i + self._skip_hidden_section(lines, i)
             return i + self._render_heading(stripped)
         if stripped.startswith("|"):
             return self._render_table(lines, i)
@@ -159,6 +198,29 @@ class BodyRenderer:
             return self._render_ordered(lines, i)
         self.body.append(para(stripped))
         return i + 1
+
+    def _render_comment(self, lines: Sequence[str], i: int,
+                        stripped: str) -> int:
+        if stripped == "<!-- page-break -->":
+            if self._next_heading_is_hidden(lines, i + 1):
+                return i + 1
+            self.body.append('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
+        return i + 1
+
+    def _next_heading_is_hidden(self, lines: Sequence[str], start: int) -> bool:
+        for line in lines[start:]:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("<!--"):
+                continue
+            return (stripped.startswith("#")
+                    and stripped.lstrip("#").strip() in self.hidden_sections)
+        return False
+
+    def _skip_hidden_section(self, lines: Sequence[str], i: int) -> int:
+        j = i + 1
+        while j < len(lines) and not lines[j].lstrip().startswith("#"):
+            j += 1
+        return j - i
 
     def _render_h1(self, text: str) -> None:
         h1_ppr = ('<w:jc w:val="center"/>'
@@ -235,6 +297,8 @@ def parse_md(md: str) -> tuple[str, dict[str, str]]:
     missing = _missing_fields(fm)
     if fm and missing:
         print("WARNING: front matter 缺失字段 %s（源文件可能被外部改写）" % missing)
-    fm_rows = _merge_fm_rows(fm, _collect_approval_table(lines))
-    body = BodyRenderer(fm_rows).render(lines)
+    fm_rows, hidden_fm_rows = _merge_fm_rows(fm, _collect_approval_table(lines))
+    hidden_sections, hide_front_matter = _collect_docx_hides(lines)
+    body = BodyRenderer(fm_rows, hidden_fm_rows, hidden_sections,
+                        show_front_matter=not hide_front_matter).render(lines)
     return DOCUMENT_TEMPLATE % body, fm

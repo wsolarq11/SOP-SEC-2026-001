@@ -47,6 +47,40 @@ approver: Tester
 | 1 | 2 |
 """
 
+_SAMPLE_DOCX_HIDE_MD = """---
+document_id: SOP-GEN-2026-TEST
+title: Test SOP
+category: GEN
+doc_type: procedure
+version: 1.0
+status: Draft
+author: Tester
+approver: Tester
+requirement_ref: hidden source fact
+---
+# Test SOP
+<!-- docx-hide: 文档信息 -->
+
+## 保留
+| A | B |
+| --- | --- |
+| 1 | 2 |
+
+<!-- docx-hide: 隐藏章节 -->
+
+## 隐藏章节
+| X | Y |
+| --- | --- |
+| 3 | 4 |
+
+<!-- docx-hide: 版本修订记录 -->
+
+## 版本修订记录
+| 版本 | 内容 |
+| --- | --- |
+|  |  |
+"""
+
 
 class PipelineTests(unittest.TestCase):
     def test_registry_contract_is_clean(self) -> None:
@@ -116,6 +150,42 @@ class PipelineTests(unittest.TestCase):
                 f.write(_SAMPLE_SOP_MD)
             sop_to_docx_stdlib.build(src, out)
             self._assert_docx_xml(out)
+
+    def test_generator_hides_requirement_ref_in_docx(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "input.md")
+            out = os.path.join(tmp, "output.docx")
+            md = _SAMPLE_SOP_MD.replace(
+                "approver: Tester\n",
+                "approver: Tester\nrequirement_ref: 2026-08 test requirement\n",
+                1,
+            )
+            with open(src, "w", encoding="utf-8") as f:
+                f.write(md)
+            sop_to_docx_stdlib.build(src, out)
+            with zipfile.ZipFile(out) as zf:
+                xml = zf.read("word/document.xml").decode("utf-8")
+            self.assertIn("requirement_ref", xml)
+            self.assertIn("2026-08 test requirement", xml)
+            self.assertIn('<w:trHeight w:val="0" w:hRule="exact"/>', xml)
+            self.assertIn("<w:hidden/>", xml)
+            self.assertGreaterEqual(xml.count("<w:vanish/>"), 2)
+
+    def test_generator_hides_marked_sections_and_front_matter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "input.md")
+            out = os.path.join(tmp, "output.docx")
+            with open(src, "w", encoding="utf-8") as f:
+                f.write(_SAMPLE_DOCX_HIDE_MD)
+            sop_to_docx_stdlib.build(src, out)
+            with zipfile.ZipFile(out) as zf:
+                xml = zf.read("word/document.xml").decode("utf-8")
+            self.assertIn("保留", xml)
+            self.assertNotIn("文档编号", xml)
+            self.assertNotIn("SOP-GEN-2026-TEST", xml)
+            self.assertNotIn("隐藏章节", xml)
+            self.assertNotIn("版本修订记录", xml)
+            self.assertNotIn("hidden source fact", xml)
 
     def _assert_docx_xml(self, out: str) -> None:
         with zipfile.ZipFile(out) as zf:
