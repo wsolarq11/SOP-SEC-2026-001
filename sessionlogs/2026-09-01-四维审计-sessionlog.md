@@ -36,3 +36,10 @@
 
 - 本次仅改文档（.md），未改任何代码与 `sops/registry.json` / `.publish-tokens`，故代码测试不受影响、全绿。
 - 修改为文档语义对齐（新增核心命令 `ship` 与上周 thermo 落地的规范化助手同步进操作地图）。
+## 追加：CI 发布剪除（同会话，用户确认）
+
+查证 GitHub Actions 基线：SOP Publish Pipeline（publish.yml）历次 push 全 failure，根因 CI 还原的 PUBLISH_TOKENS_B64 缺 SOP-DESK-2026-003 token，从未真发成功；test.yml 全绿。决策：删除 publish.yml，CI 只保留 test.yml（kb.py test + line）只读校验；发布唯一入口=本机 ship/publish；备份（本机 pre-push hook）不变。同步更新 AGENTS.md / docs/项目事实 / 审计报告 §5。
+
+## 追加2：CI 发布剪除收尾（用户确认）
+
+用户选择"清（推荐）"：删除失效 GitHub secrets（PUBLISH_TOKENS_B64 / LARK_APP_ID / LARK_APP_SECRET，均已删除，repo 现无 secret）；移除 token_bootstrap.py 死代码 --sync-secret（及 _repo_name/_sync_ci_secret/import base64）、更新 kb.py 用法与 AGENTS.md §二/§六/§七 与 docs/产线化规划 CI 口径。kb.py test 38 项全绿、check 通过。

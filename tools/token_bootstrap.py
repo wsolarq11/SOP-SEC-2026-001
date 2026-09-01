@@ -10,7 +10,6 @@ Tokens are never printed or committed.
 from __future__ import annotations
 
 import argparse
-import base64
 import os
 import subprocess
 import sys
@@ -102,39 +101,6 @@ def _read_tokens(path: str) -> dict[str, str]:
     return publish_tokens.read_publish_tokens(path)
 
 
-def _repo_name() -> str:
-    proc = subprocess.run(
-        ["git", "-C", registry_lib.ROOT, "remote", "get-url", "origin"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    url = proc.stdout.strip() if proc.returncode == 0 else ""
-    for prefix in ("https://github.com/", "git@github.com:"):
-        if url.startswith(prefix):
-            return url[len(prefix):].removesuffix(".git")
-    return "wsolarq11/SOP-SEC-2026-001"
-
-
-def _sync_ci_secret() -> None:
-    path = os.path.join(registry_lib.ROOT, ".publish-tokens")
-    with open(path, "rb") as f:
-        payload = f.read()
-    encoded = base64.b64encode(payload).decode("ascii")
-    proc = subprocess.run(
-        ["gh", "secret", "set", "PUBLISH_TOKENS_B64", "--repo", _repo_name()],
-        input=encoded,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    if proc.returncode != 0:
-        raise RuntimeError("GitHub secret sync failed: %s"
-                           % proc.stderr.strip())
-
-
 def _update_tokens(path: str, source: str, token: str) -> None:
     publish_tokens.write_publish_token(path, source, token)
 
@@ -184,8 +150,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--as", dest="as_identity", default="user")
     parser.add_argument("--pub", default="")
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--sync-secret", action="store_true",
-                        help="also sync PUBLISH_TOKENS_B64 to GitHub Actions")
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     entry = _entry(args.source)
@@ -198,9 +162,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     tokens = _read_tokens(tokens_path)
     if tokens.get(args.source) and tokens[args.source] != "NONE":
         print("[OK] token 已存在: %s" % args.source)
-        if args.sync_secret:
-            _sync_ci_secret()
-            print("[OK] GitHub Actions secret 已同步")
         return 0
 
     cli = "lark-cli"
@@ -230,9 +191,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("[OK] 首次上传并登记 token: %s" % args.source)
         token = _exclude_backup_token(args.source, token)
         _update_tokens(tokens_path, args.source, token)
-        if args.sync_secret:
-            _sync_ci_secret()
-            print("[OK] GitHub Actions secret 已同步")
         return 0
     except Exception as exc:
         print("[FAIL] %s" % exc, file=sys.stderr)

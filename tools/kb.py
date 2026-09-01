@@ -11,7 +11,7 @@ Usage:
   python tools/kb.py fact review <document_id> <reviewer> <reviewed_at>
   python tools/kb.py fact signoff <document_id> <approver> <effective_date> [--reviewer ...] [--reviewed-at ...]
   python tools/kb.py fact sync <document_id>
-  python tools/kb.py token-bootstrap --source <md> [--dry-run] [--sync-secret]
+  python tools/kb.py token-bootstrap --source <md> [--dry-run]
   python tools/kb.py build <input.md> <output.docx>
   python tools/kb.py publish [--dry-run] [--bootstrap] [target]
   python tools/kb.py ship [--dry-run] [--bootstrap]
