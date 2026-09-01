@@ -23,7 +23,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 
 AGENTS.md — SOP 知识库工作区指南
-本文件在进入本工作区时自动载入，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-08-27（registry.json 已收敛为唯一事实源，front matter 由 renderer 单向生成；发布事实写入仓库内安全摘要并回写 last_published_at；事实命令、token 自举、持久发布日志、kb.py line；SOP-GEN-2026-004 缺口已用真实飞书首次上传冲通；仓库已改 public，GitHub Actions 恢复并全绿；发布语义为 Draft/Approved 发布，停用文档从 registry 删除，Draft 发布不代表已签批）。
+本文件是进入本仓库时自动加载，是本仓库的"操作地图"：结构、真相源、工作流与禁忌。 最后核实：2026-09-01（registry.json 已收敛为唯一事实源，front matter 由 renderer 单向生成；发布事实写入仓库内安全摘要并回写 last_published_at；事实命令、token 自举、持久发布日志、kb.py line；已新增 kb.py ship 一键管线（registry-render→check→test→publish→commit/push，失败即停、幂等）；发布语义为 Draft/Approved 发布，停用文档从 registry 删除，Draft 发布不代表已签批）。
 
 一、仓库定位：源 vs 临时区
 位置	角色	git
@@ -36,7 +36,7 @@ sops/ — md 源文件 + registry.json（机器唯一权威）+ REGISTRY.md（�
 sop/ — 会话/治理类 SOP 源，正式纳入发布链时登记 registry；sessionlogs/ 只存历史会话归档，权威基线见 sessionlogs/BASELINE.md
 docs/ — 项目总览与口径：docs/项目事实与产线总览.md（事实模型/数据形态/依赖方向/已通线路统一主线）；docs/产线化规划与评估.md、docs/产线词表.md（路线与口径）
 依赖链：工具链、CI、hooks 不是并列资产，而是文档产线节点的依赖与自动化；依赖方向见 docs/项目事实与产线总览.md §2
-tools/ — docx 生成工具链；tools/kb.py — 根入口（check/test/publish/backup/auth/cleanup/registry-render/line/fact/token-bootstrap）：
+tools/ — docx 生成工具链；tools/kb.py — 根入口（check/test/publish/ship/backup/auth/cleanup/registry-render/manifest/line/fact/token-bootstrap/build/stage）：
 sop_to_docx_stdlib.py <input.md> <output.docx>（纯 stdlib，唯一生成器；依赖版已删除，历史见 git）
 check_docs.py（健康检查：front matter 完整性 + registry.json 发布契约一致性）
 registry_lib.py（registry.json 解析、REGISTRY.md 兼容解析与契约校验共享库）
@@ -46,8 +46,11 @@ publish_log.py（真实发布成功后追加仓库外发布日志 + 仓库内 so
 line_report.py（产线统一观测：kb.py line）
 fact_ops.py（产线事实登记：kb.py fact link/review/signoff/sync）
 token_bootstrap.py（新文档首次上传飞书并登记 token：kb.py token-bootstrap，支持 --sync-secret）
+publish_tokens.py（.publish-tokens 唯一读写端：read_publish_tokens / write_publish_token，封装 BACKUP_* 与文档键字段位差异；供 token_bootstrap / line_report / cleanup_90_md 复用）
 docx_template.b64（docx 模板）
 publish.sh（发布管线：构建-校验-发布-报告，--dry-run/--bootstrap；清单由 registry.json 自动生成，上传 token 见 .publish-tokens，不入库）
+ship.sh（一键总控：registry-render→check→test→publish→git commit/push，失败即停、幂等；kb.py ship [--dry-run] [--bootstrap]）
+lib.sh（共享 bash 路径初始化：normalize_path / setup_paths / default_pub；publish.sh/ship.sh/backup_commit.sh/check_git_auth.sh/test_check_git_auth.sh 共用）
 check_git_auth.sh（GitHub 推送前凭据守卫：检测 remote 内嵌 token、github insteadOf、github extraheader、credential.helper store / ~/.git-credentials、gh 登录态；pre-push 时还会 git ls-remote 实测；支持 --fix）
 test_check_git_auth.sh（凭据守卫回归测试：临时 HOME/config 注入 insteadOf、extraheader、~/.git-credentials，确认拦截且干净状态放行）
 check_secrets.py（敏感信息扫描：扫 git 已跟踪文件/staged 内容中的 GitHub/Slack/AWS token、私钥、密码赋值等；pre-commit/pre-push/publish.sh/CI 统一入口）
@@ -78,8 +81,8 @@ publish\ 是可重建快照，不是镜像：临时区可能随时被清空，pu
 临时区路径由 publish.sh 管理：当前默认 %TEMP%\sop-exports\publish，可用 PUB 环境变量覆盖；换账号/机器时不要假设该目录或旧文件仍存在
 backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次提交和推送前重建并同名覆盖上传到飞书 90 目录（BACKUP_WIKI Wiki 节点），上传失败则 commit/push 显式失败；默认 %TEMP%\sop-exports\backup，可用 BACKUP_DIR 覆盖；本地开发可用 KB_BACKUP_MODE=soft（失败不阻断）或 KB_BACKUP_MODE=skip（跳过备份），默认 hard 保持强制双备份
 清掉 %TEMP% 的后果：docx 可由生成器重建、md 可从 git 恢复；飞书上传 token 与 bot 凭据在仓库外，需由外部保留
-六、当前状态（2026-08-27）
-产线统一路线已完成缺口闭环：`registry.json` 是唯一事实源，front matter 由 `registry-render --write` 单向生成；`requirement_ref` 全量回填，`fact link/review/signoff/sync` 只写 registry；`token-bootstrap` 可自动首次上传并登记飞书 token（可选同步 `PUBLISH_TOKENS_B64` GitHub secret）；发布日志同时写入仓库外完整日志与仓库内 `sops/publish-history.jsonl` 安全摘要，并回写 `last_published_at`；CI 发布后把发布事实提交回 master；`kb.py line` 已接入 token 缺失阻塞与发布记录条数，CI 输出 line 报告并归档 publish-log。工具链、CI、hooks 已按依赖方向串入文档产线，统一主线见 `docs/项目事实与产线总览.md`。发布入口仍是 `python tools/kb.py publish`，`--bootstrap` 会在缺 token 时自动闭合；活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
+六、当前状态（2026-09-01）
+产线统一路线已完成缺口闭环：`registry.json` 是唯一事实源，front matter 由 `registry-render --write` 单向生成；`requirement_ref` 全量回填，`fact link/review/signoff/sync` 只写 registry；`token-bootstrap` 可自动首次上传并登记飞书 token（可选同步 `PUBLISH_TOKENS_B64` GitHub secret）；发布日志同时写入仓库外完整日志与仓库内 `sops/publish-history.jsonl` 安全摘要，并回写 `last_published_at`；CI 发布后把发布事实提交回 master；`kb.py line` 已接入 token 缺失阻塞与发布记录条数，CI 输出 line 报告并归档 publish-log。工具链、CI、hooks 已按依赖方向串入文档产线，统一主线见 `docs/项目事实与产线总览.md`。一键发布入口为 `python tools/kb.py ship`（registry-render→check→test→publish→git commit/push，失败即停），也可用 `python tools/kb.py publish` 作为发布（含 --bootstrap 自动补 token）；活动文档保持 `Draft`，`approver` / `effective_date` 等真实签批后再填写，不伪造。
 七、标准工作流
 开工必读：进入本工作区时，先读 `sessionlogs/` 最新一份 `*-sessionlog.md` 与 `sessionlogs/BASELINE.md`，以承接上次工作上下文（工作日志即跨会话记忆，勿跳过；存在即应察觉）
 仓库备份初始化（一次性）：python tools/kb.py backup --install，再 python tools/kb.py backup --init --wiki-token <90目录wiki node_token>
@@ -90,6 +93,7 @@ backup\ 是可重建仓库 bundle 暂存区：post-commit/pre-push hook 每次�
 新文档首次发布：`python tools/kb.py token-bootstrap --source <md> [--sync-secret]`，或直接 `python tools/kb.py publish --bootstrap` 自动首次上传并登记 token
 跑 `python tools/kb.py check` 健康检查（front matter 完整性 + registry.json 契约一致性）
 构建验证：python tools/kb.py publish --dry-run，输出到 %TEMP%\sop-exports\publish\（docx 不入库）
+一键发布（推荐）：python tools/kb.py ship [--dry-run] [--bootstrap] 串起 registry-render→check→test→publish→git commit/push，失败即停、幂等；--dry-run 只校验不推送
 git 提交 md 源与生成器改动（docx 一律不入库；pre-commit 先跑 `python tools/kb.py secrets --staged`，post-commit hook 必须完成飞书 bundle 上传，失败时 git commit 显式报错）
 git push origin master：pre-push hook 先跑 `python tools/kb.py secrets --all`，再跑 `python tools/kb.py auth --network` 清旧凭据并实测 remote，再强制飞书 bundle 上传成功，最后推送 GitHub；GitHub Actions 随后自动跑敏感扫描、健康检查、docx 构建，以 bot 身份自动上传飞书，并把 last_published_at、REGISTRY.md、publish-history.jsonl 提交回 master；本机 `python tools/kb.py publish` 仍可作为发布兜底
 本地上传飞书兜底：python tools/kb.py publish（仅成品 docx 同名覆盖对应节点；md 不再单独上传）
