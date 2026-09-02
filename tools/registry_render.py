@@ -14,9 +14,11 @@ from collections.abc import Sequence
 
 from registry_lib import (
     COLUMNS,
+    FRONT_MATTER_FIELDS,
     OPTIONAL_FIELDS,
     REGISTRY_JSON_REL,
     REGISTRY_REL,
+    REQUIRED_FRONT_MATTER,
     ROOT,
     parse_fm,
     parse_registry,
@@ -27,26 +29,6 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 RENDER_FIELDS = COLUMNS + OPTIONAL_FIELDS
-
-FRONT_MATTER_FIELDS = [
-    ("document_id", "document_id"),
-    ("title", "title"),
-    ("category", "domain"),
-    ("doc_type", "doc_type"),
-    ("version", "version"),
-    ("status", "status"),
-    ("author", "author"),
-    ("approver", "approver"),
-    ("effective_date", "effective_date"),
-    ("requirement_ref", "requirement_ref"),
-    ("reviewer", "reviewer"),
-    ("reviewed_at", "reviewed_at"),
-    ("approved_at", "approved_at"),
-]
-REQUIRED_FRONT_MATTER = {
-    "document_id", "title", "category", "doc_type",
-    "version", "status", "author", "approver",
-}
 
 HEADER_LABELS = {
     "document_id": "文档号",

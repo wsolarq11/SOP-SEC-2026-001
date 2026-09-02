@@ -280,18 +280,6 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("SOP-通用-系统说明.docx", proc.stdout)
         self.assertNotIn("\ufffd", proc.stdout + proc.stderr)
 
-    def test_kb_cli_stage_path_resolves_toolchain(self) -> None:
-        proc = subprocess.run(
-            [sys.executable, os.path.join(ROOT, "tools", "kb.py"), "stage"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertIn("tools", proc.stdout)
-
     def test_kb_cli_dispatches_health_check(self) -> None:
         proc = subprocess.run(
             [sys.executable, os.path.join(ROOT, "tools", "kb.py"), "check"],

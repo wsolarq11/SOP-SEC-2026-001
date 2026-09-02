@@ -36,7 +36,7 @@ sops/ — md 源文件 + registry.json（机器唯一权威）+ REGISTRY.md（�
 sop/ — 会话/治理类 SOP 源，正式纳入发布链时登记 registry；sessionlogs/ 只存历史会话归档，权威基线见 sessionlogs/BASELINE.md
 docs/ — 项目总览与口径：docs/项目事实与产线总览.md（事实模型/数据形态/依赖方向/已通线路统一主线）；docs/产线化规划与评估.md、docs/产线词表.md（路线与口径）
 依赖链：工具链、CI、hooks 不是并列资产，而是文档产线节点的依赖与自动化；依赖方向见 docs/项目事实与产线总览.md §2
-tools/ — docx 生成工具链；tools/kb.py — 根入口（check/test/publish/ship/backup/auth/cleanup/registry-render/manifest/line/fact/token-bootstrap/build/stage）：
+tools/ — docx 生成工具链；tools/kb.py — 根入口（check/test/publish/ship/backup/auth/cleanup/registry-render/manifest/line/fact/token-bootstrap/build）：
 sop_to_docx_stdlib.py <input.md> <output.docx>（纯 stdlib，唯一生成器；依赖版已删除，历史见 git）
 check_docs.py（健康检查：front matter 完整性 + registry.json 发布契约一致性）
 registry_lib.py（registry.json 解析、REGISTRY.md 兼容解析与契约校验共享库）

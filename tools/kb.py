@@ -19,7 +19,6 @@ Usage:
   python tools/kb.py auth [--network] [--fix]
   python tools/kb.py cleanup [--dry-run|--yes]
   python tools/kb.py test
-  python tools/kb.py stage
 """
 import os
 import shutil
@@ -109,9 +108,6 @@ def main(argv: list[str]) -> int:
     if not argv:
         return usage()
     cmd, rest = argv[0], argv[1:]
-    if cmd == "stage":
-        print(TOOLS)
-        return 0
     if cmd == "build" and len(rest) < 2:
         return usage()
     rc = run_python_script(cmd, rest)

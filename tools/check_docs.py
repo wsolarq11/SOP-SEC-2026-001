@@ -22,17 +22,21 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from registry_lib import (
+    FRONT_MATTER_FIELDS,
     REGISTRY_JSON_REL,
     REGISTRY_REL,
+    REQUIRED_FRONT_MATTER,
     ROOT,
     parse_fm,
     parse_registry,
     validate_registry_entries,
 )
 
-# 新 schema（faa3c44 起）：8 字段。旧字段 doc_number/domain/owner 已废弃。
-REQUIRED = ["document_id", "title", "category", "doc_type",
-            "version", "status", "author", "approver"]
+# 必填 front matter 字段：直接复用 registry_lib 单一事实源（按渲染序取 8 必填）。
+REQUIRED = [
+    fm_key for fm_key, _ in FRONT_MATTER_FIELDS
+    if fm_key in REQUIRED_FRONT_MATTER
+]
 
 # 系统说明已移入 sops/，不再需要根目录附加巡检文件。
 ROOT_EXTRAS: list[str] = []

@@ -46,13 +46,43 @@ OPTIONAL_FIELDS = [
     "last_published_at",
 ]
 ALLOWED_FIELDS = frozenset(COLUMNS + OPTIONAL_FIELDS)
-FRONT_MATTER_OPTIONAL_MATCH = [
-    ("requirement_ref", "requirement_ref"),
+# front matter 字段映射的单一事实源：registry 字段 -> front matter 键。
+# registry_render 渲染、registry_lib 校验都复用此表；严禁在别处再定义第二份。
+FRONT_MATTER_FIELDS = [
+    ("document_id", "document_id"),
+    ("title", "title"),
+    ("category", "domain"),
+    ("doc_type", "doc_type"),
+    ("version", "version"),
+    ("status", "status"),
+    ("author", "author"),
     ("approver", "approver"),
     ("effective_date", "effective_date"),
+    ("requirement_ref", "requirement_ref"),
     ("reviewer", "reviewer"),
     ("reviewed_at", "reviewed_at"),
     ("approved_at", "approved_at"),
+]
+# 必填 front matter 字段集合（渲染时即使 registry 为空也输出、校验时必须存在）。
+REQUIRED_FRONT_MATTER = {
+    "document_id", "title", "category", "doc_type",
+    "version", "status", "author", "approver",
+}
+# 恒比对字段（registry 与 front matter 值必须一致），派生自单一事实源。
+_FRONT_MATTER_OPTIONAL_FM_KEYS = {
+    "approver", "requirement_ref", "effective_date",
+    "reviewer", "reviewed_at", "approved_at",
+}
+FRONT_MATTER_MATCH = [
+    (fm_key, reg_key)
+    for fm_key, reg_key in FRONT_MATTER_FIELDS
+    if fm_key not in _FRONT_MATTER_OPTIONAL_FM_KEYS
+]
+# 可选事实字段：两者均非空时才要求一致。
+FRONT_MATTER_OPTIONAL_MATCH = [
+    (fm_key, reg_key)
+    for fm_key, reg_key in FRONT_MATTER_FIELDS
+    if fm_key in _FRONT_MATTER_OPTIONAL_FM_KEYS
 ]
 DATE_FIELDS = ("reviewed_at", "approved_at", "last_published_at")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")

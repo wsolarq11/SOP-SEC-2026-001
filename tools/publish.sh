@@ -55,16 +55,28 @@ is_target() {
   [ "$TARGET" = "ALL" ] || [ "$mdrel" = "$TARGET" ] || [ "$docxname" = "$TARGET" ]
 }
 
-# 读取上传 token 映射（gitignore 忽略，不入库）到全局 DOCTOK
+# 读取上传 token 映射（gitignore 忽略，不入库）到全局 DOCTOK。
+# 委托 canonical 读取端 publish_tokens.py（.publish-tokens 唯一读写端），
+# 杜绝此处重复解析 / 字段位分歧；仅保留文档键，过滤 BACKUP_* 键。
 load_doctoken() {
   if [ ! -f "$ROOT/.publish-tokens" ]; then
     echo "[FAIL] 缺少 $ROOT/.publish-tokens（上传 token 映射），无法发布"
     exit 1
   fi
-  while IFS='|' read -r mdrel mdtok docxtok; do
+  local maps
+  maps="$(PYTHONIOENCODING=utf-8 "$PY" -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import publish_tokens
+task = sys.argv[2]
+for key, tok in publish_tokens.read_publish_tokens(task + "/.publish-tokens").items():
+    if not key.startswith("BACKUP_"):
+        print(key + "\t" + tok)
+' "$TOOLS" "$ROOT")" || { echo "[FAIL] 读取 token 映射失败"; exit 1; }
+  while IFS=$'\t' read -r mdrel tok; do
     [ -z "$mdrel" ] && continue
-    DOCTOK["$mdrel"]="$docxtok"
-  done < <(tr -d "\r" < "$ROOT/.publish-tokens")
+    DOCTOK["$mdrel"]="$tok"
+  done <<< "$maps"
 }
 
 declare -A DOCTOK
