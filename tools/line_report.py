@@ -135,8 +135,7 @@ def _build_lines(entries: Sequence[dict[str, str]],
             "reviewer": entry.get("reviewer", ""),
             "reviewed_at": entry.get("reviewed_at", ""),
             "approved_at": entry.get("approved_at", ""),
-            "last_publish": (publish.get("time", "") if publish
-                             else entry.get("last_published_at", "")),
+            "last_publish": entry.get("last_published_at", ""),
             "blocked": BLOCKED if _is_blocked(entry, records, tokens) else NORMAL,
         })
     return lines
